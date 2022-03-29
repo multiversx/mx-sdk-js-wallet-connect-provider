@@ -16,7 +16,7 @@
   "author": "ElrondNetwork",
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    
+    "@walletconnect/client": "1.6.5"
   },
   "devDependencies": {
     "browserify": "17.0.0",
