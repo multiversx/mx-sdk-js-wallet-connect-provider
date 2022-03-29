@@ -8,7 +8,6 @@ export interface IDappProvider {
     getAddress(): Promise<string>;
     isInitialized(): boolean;
     isConnected(): Promise<boolean>;
-    sendTransaction(transaction: Transaction, options?: {callbackUrl?: string}): Promise<Transaction>;
     signTransaction(transaction: Transaction, options?: {callbackUrl?: string}): Promise<Transaction>;
     signTransactions(transaction: Array<Transaction>, options?: {callbackUrl?: string}): Promise<Array<Transaction>>;
     signMessage(transaction: SignableMessage, options?: {callbackUrl?: string}): Promise<SignableMessage>;

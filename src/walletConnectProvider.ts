@@ -1,5 +1,4 @@
 import WalletClient from "@walletconnect/client";
-import { IProvider } from "../interface";
 import { Transaction } from "../transaction";
 import { Address } from "../address";
 import { IDappProvider } from "./interface";
@@ -15,15 +14,13 @@ interface IClientConnect {
 }
 
 export class WalletConnectProvider implements IDappProvider {
-    provider: IProvider;
     walletConnectBridge: string;
     address: string = "";
     signature: string = "";
     walletConnector: WalletClient | undefined;
     private onClientConnect: IClientConnect;
 
-    constructor(httpProvider: IProvider, walletConnectBridge: string = "", onClientConnect: IClientConnect) {
-        this.provider = httpProvider;
+    constructor(walletConnectBridge: string = "", onClientConnect: IClientConnect) {
         this.walletConnectBridge = walletConnectBridge;
         this.onClientConnect = onClientConnect;
     }
@@ -120,22 +117,6 @@ export class WalletConnectProvider implements IDappProvider {
         }
         
         return this.signature;
-    }
-
-    /**
-     * Signs and sends a transaction. Returns the transaction hash
-     * @param transaction
-     */
-    async sendTransaction(transaction: Transaction): Promise<Transaction> {
-        if (!this.walletConnector) {
-            Logger.error("sendTransaction: Wallet Connect not initialised, call init() first");
-            throw new Error("Wallet Connect not initialised, call init() first");
-        }
-
-        transaction = await this.signTransaction(transaction);
-
-        await transaction.send(this.provider);
-        return transaction;
     }
 
     /**
