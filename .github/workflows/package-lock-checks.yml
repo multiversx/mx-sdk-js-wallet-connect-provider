@@ -27,5 +27,5 @@ jobs:
         run: npm install
 
       - name: Compare old package-lock with generated package-lock
-        run: cmp package-lock.json package-lock.copy.json
+        run: cmp package-lock.json package-lock-copy.json
 
