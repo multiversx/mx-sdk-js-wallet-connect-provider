@@ -18,7 +18,7 @@ export class WalletConnectProvider implements IDappProvider {
     walletConnector: WalletClient | undefined;
     private onClientConnect: IClientConnect;
 
-    constructor(walletConnectBridge: string = "", onClientConnect: IClientConnect) {
+    constructor(walletConnectBridge: string, onClientConnect: IClientConnect) {
         this.walletConnectBridge = walletConnectBridge;
         this.onClientConnect = onClientConnect;
     }

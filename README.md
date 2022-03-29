@@ -31,16 +31,14 @@ Make sure you have the package `http-server` installed globally.
 npm install --global http-server
 ```
 
-Note that the examples can only be served via HTTPS (a dummy certificate is included in the `examples` folder).
-
 When you are ready, build the examples:
 
 ```
 npm run compile-examples
 ```
 
-Start the server and navigate to `https://localhost:8080/examples/index.html`
+Start the server and navigate to `http://localhost:8080/examples/index.html`
 
 ```
-http-server -S --port=8080
+http-server --port=8080
 ```

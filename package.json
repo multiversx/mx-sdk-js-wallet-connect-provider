@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "compile": "tsc -p tsconfig.json",
-    "compile-examples": "tsc -p tsconfig.json && browserify out/index.js -o out-examples/lib.js --standalone lib -p esmify",
+    "compile-examples": "npm run compile && browserify examples/app.js -o out-examples/app.js --standalone app -p esmify",
     "pretest": "npm run compile",
     "prepare": "npm run compile"
   },
@@ -20,6 +20,7 @@
     "bech32": "1.1.4"
   },
   "devDependencies": {
+    "@walletconnect/qrcode-modal": "1.7.7",
     "@types/node": "17.0.23",
     "browserify": "17.0.0",
     "esmify": "2.1.1",
