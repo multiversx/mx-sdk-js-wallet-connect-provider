@@ -1,12 +1,10 @@
 import WalletClient from "@walletconnect/client";
-import { Transaction } from "../transaction";
-import { Address } from "../address";
-import { IDappProvider } from "./interface";
-import { Signature } from "../signature";
+import { IDappProvider, ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_CHAIN_ID } from "./constants";
-import { Logger } from "../logger";
-import {SignableMessage} from "../signableMessage";
-import {ErrNotImplemented} from "../errors";
+import { Logger } from "./logger";
+import { ErrNotImplemented } from "./errors";
+import { Signature } from "./signature";
+import { UserAddress } from "./userAddress";
 
 interface IClientConnect {
     onClientLogin: () => void;
@@ -62,9 +60,6 @@ export class WalletConnectProvider implements IDappProvider {
         return new Promise((resolve, _) => resolve(this.isInitialized()));
     }
 
-    /**
-     *
-     */
     async login(): Promise<string> {
         if (!this.walletConnector) {
             await this.init();
@@ -123,7 +118,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Method will be available once the Maiar wallet connect hook is implemented
      * @param _
      */
-    async signMessage(_: SignableMessage): Promise<SignableMessage> {
+    async signMessage(_: ISignableMessage): Promise<ISignableMessage> {
         throw new ErrNotImplemented();
     }
 
@@ -131,7 +126,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Signs a transaction and returns it
      * @param transaction
      */
-    async signTransaction(transaction: Transaction): Promise<Transaction> {
+    async signTransaction(transaction: ITransaction): Promise<ITransaction> {
         if (!this.walletConnector) {
             Logger.error("signTransaction: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -147,7 +142,7 @@ export class WalletConnectProvider implements IDappProvider {
             throw new Error("Wallet Connect could not sign the transaction");
         }
 
-        transaction.applySignature(new Signature(sig.signature), new Address(address));
+        transaction.applySignature(Signature.fromHex(sig.signature), UserAddress.fromBech32(address));
         return transaction;
     }
 
@@ -155,7 +150,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Signs an array of transactions and returns it
      * @param transactions
      */
-    async signTransactions(transactions: Transaction[]): Promise<Transaction[]> {
+    async signTransactions(transactions: ITransaction[]): Promise<ITransaction[]> {
         if (!this.walletConnector) {
             Logger.error("signTransactions: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -179,21 +174,20 @@ export class WalletConnectProvider implements IDappProvider {
             }
 
             transactions.map((transaction, key: number) => 
-                transaction.applySignature(new Signature(signatures[key].signature), new Address(address))
+                transaction.applySignature(Signature.fromHex(signatures[key].signature), UserAddress.fromBech32(address))
             );
 
             return transactions;
         }
 
-        transactions[0].applySignature(new Signature(signatures.signature), new Address(address));
+        transactions[0].applySignature(Signature.fromHex(signatures.signature), UserAddress.fromBech32(address));
         
         return transactions;
     }
 
     /**
      * Sends a custom method and params and returns the response object
-     */    
-
+     */
     async sendCustomMessage({
         method,
         params,
@@ -261,7 +255,7 @@ export class WalletConnectProvider implements IDappProvider {
         }
     }
 
-    private prepareWalletConnectMessage(transaction: Transaction, address: string): any {
+    private prepareWalletConnectMessage(transaction: ITransaction, address: string): any {
         return {
             nonce: transaction.getNonce().valueOf(),
             from: address,
@@ -288,7 +282,7 @@ export class WalletConnectProvider implements IDappProvider {
 
     private addressIsValid(destinationAddress: string): boolean {
         try {
-            const addr = new Address(destinationAddress);
+            const addr = UserAddress.fromBech32(destinationAddress);
             return !!addr;
         } catch {
             return false;
