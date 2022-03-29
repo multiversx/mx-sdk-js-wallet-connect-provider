@@ -1,0 +1,35 @@
+name: Check package-lock.json
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-erdjs:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: '16.14.2'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Copy package-lock.json file
+        run: cp package-lock.json package-lock-copy.json
+
+      - name: Remove package-lock.json file
+        run: rm -f package-lock.json
+
+      - name: Run npm install
+        run: npm install
+
+      - name: Compare old package-lock with generated package-lock
+        run: cmp package-lock.json package-lock.copy.json
+
