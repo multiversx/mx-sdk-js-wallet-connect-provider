@@ -16,6 +16,8 @@ jobs:
           node-version: 16
           registry-url: https://registry.npmjs.org/
       
+      - run: npm ci
+
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -25,9 +27,6 @@ jobs:
 
           RELEASE_TAG=v$(node -p "require('./package.json').version")
           gh release create $RELEASE_TAG --target=$GITHUB_SHA --title="$RELEASE_TAG" --generate-notes --notes-file=notes.txt
-      
-      - run: npm ci
-      - run: npm test
       
       - name: Publish to npmjs
         env:
