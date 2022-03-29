@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-erdjs:
+  compare-package-lock:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,4 +28,3 @@ jobs:
 
       - name: Compare old package-lock with generated package-lock
         run: cmp package-lock.json package-lock-copy.json
-
