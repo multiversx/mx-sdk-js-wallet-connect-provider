@@ -1,5 +1,5 @@
 import WalletClient from "@walletconnect/client";
-import { IDappProvider, ISignableMessage, ITransaction } from "./interface";
+import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_CHAIN_ID } from "./constants";
 import { Logger } from "./logger";
 import { ErrNotImplemented } from "./errors";
@@ -11,7 +11,7 @@ interface IClientConnect {
     onClientLogout(): void;
 }
 
-export class WalletConnectProvider implements IDappProvider {
+export class WalletConnectProvider {
     walletConnectBridge: string;
     address: string = "";
     signature: string = "";
@@ -84,7 +84,7 @@ export class WalletConnectProvider implements IDappProvider {
             Logger.error("logout: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
         }
-        if (this.walletConnector?.connected) {
+        if (this.walletConnector.connected) {
             await this.walletConnector?.killSession();
         }
         return true;
@@ -118,7 +118,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Method will be available once the Maiar wallet connect hook is implemented
      * @param _
      */
-    async signMessage(_: ISignableMessage): Promise<ISignableMessage> {
+    async signMessage<T extends ISignableMessage>(_: T): Promise<T> {
         throw new ErrNotImplemented();
     }
 
@@ -126,7 +126,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Signs a transaction and returns it
      * @param transaction
      */
-    async signTransaction(transaction: ITransaction): Promise<ITransaction> {
+    async signTransaction<T extends ITransaction>(transaction: T): Promise<T> {
         if (!this.walletConnector) {
             Logger.error("signTransaction: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -150,7 +150,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Signs an array of transactions and returns it
      * @param transactions
      */
-    async signTransactions(transactions: ITransaction[]): Promise<ITransaction[]> {
+    async signTransactions<T extends ITransaction>(transactions: T[]): Promise<T[]> {
         if (!this.walletConnector) {
             Logger.error("signTransactions: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");

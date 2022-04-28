@@ -7,14 +7,13 @@
 
 <body>
     <div>
-        <button onclick="main()">Run example</button>
+        <button onclick="myApp.login()">Login</button>
+        <button onclick="myApp.sign()">Sign transaction</button>
     </div>
 
     <script src="../out-examples/app.js"></script>
     <script>
-        async function main() {
-            await app.main();
-        }
+        let myApp = new app.MyApp();
     </script>
 </body>
 

@@ -1,36 +1,49 @@
 import QRCodeModal from "@walletconnect/qrcode-modal";
 import { WalletConnectProvider } from "../out/walletConnectProvider";
 
-export async function main() {
-    let bridge = "https://bridge.walletconnect.org";
+const BridgeUrl = "https://bridge.walletconnect.org";
 
-    let callbacks = {
-        onClientLogin: async function () {
-            console.log("onClientLogin()");
-            await provider.signTransaction(new DummyTransaction());
-        },
-        onClientLogout: async function () {
-            console.log("onClientLogout()");
-        }
-    };
+export class MyApp {
+    constructor() {
+        let callbacks = {
+            onClientLogin: async function () {
+                alert("onClientLogin()");
+            },
+            onClientLogout: async function () {
+                alert("onClientLogout()");
+            }
+        };
 
-    let provider = new WalletConnectProvider(bridge, callbacks);
-    await provider.init();
-    let connectorUri = await provider.login();
-    QRCodeModal.open(connectorUri);
+        this.provider = new WalletConnectProvider(BridgeUrl, callbacks);
+    }
+
+    async login() {
+        await this.provider.init();
+        let connectorUri = await this.provider.login();
+        QRCodeModal.open(connectorUri);
+    }
+
+    async sign() {
+        let transaction = await this.provider.signTransaction(new DummyTransaction());
+        alert(`Transaction signature = ${transaction.signature}.`);
+    }
 }
 
 function DummyTransaction() {
     this.getNonce = () => 0;
-    this.getValue = () => "1";
+    this.getValue = () => "1000000000000000000";
     this.getReceiver = () => "erd1uv40ahysflse896x4ktnh6ecx43u7cmy9wnxnvcyp7deg299a4sq6vaywa";
     this.getData = () => "";
     this.getGasPrice = () => 1000000000;
     this.getGasLimit = () => 50000;
     this.getChainID = () => "T";
     this.getVersion = () => 1;
+    this.signature = "?";
+    this.signedBy = "?";
 
     this.applySignature = function(signature, signedBy) {
-        console.log("DummyTransaction.applySignature()", signature.hex(), signedBy.bech32());
+        this.signature = signature.hex();
+        this.signedBy = signedBy.bech32();
+        console.log("DummyTransaction.applySignature()", this.signature, this.signedBy);
     }
 }
