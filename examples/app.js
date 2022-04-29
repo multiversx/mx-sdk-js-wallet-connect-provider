@@ -1,11 +1,11 @@
 import QRCodeModal from "@walletconnect/qrcode-modal";
 import { WalletConnectProvider } from "../out/walletConnectProvider";
 
-const BridgeUrl = "https://bridge.walletconnect.org";
+const bridgeUrl = "https://bridge.walletconnect.org";
 
 export class MyApp {
     constructor() {
-        let callbacks = {
+        const callbacks = {
             onClientLogin: async function () {
                 alert("onClientLogin()");
             },
@@ -14,7 +14,7 @@ export class MyApp {
             }
         };
 
-        this.provider = new WalletConnectProvider(BridgeUrl, callbacks);
+        this.provider = new WalletConnectProvider(bridgeUrl, callbacks);
     }
 
     async login() {
