@@ -171,7 +171,7 @@ export class WalletConnectProvider {
             throw new Error("Wallet Connect could not sign the transactions. Invalid signatures.");
         }
 
-        for (var [index, transaction] of transactions.entries()) {
+        for (const [index, transaction] of transactions.entries()) {
             transaction.applySignature(Signature.fromHex(signatures[index].signature), UserAddress.fromBech32(address))
         }
     }
