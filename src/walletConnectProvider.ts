@@ -1,5 +1,5 @@
 import WalletClient from "@walletconnect/client";
-import { IDappProvider, ISignableMessage, ITransaction } from "./interface";
+import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_CHAIN_ID } from "./constants";
 import { Logger } from "./logger";
 import { ErrNotImplemented } from "./errors";
@@ -11,7 +11,7 @@ interface IClientConnect {
     onClientLogout(): void;
 }
 
-export class WalletConnectProvider implements IDappProvider {
+export class WalletConnectProvider {
     walletConnectBridge: string;
     address: string = "";
     signature: string = "";
@@ -84,7 +84,7 @@ export class WalletConnectProvider implements IDappProvider {
             Logger.error("logout: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
         }
-        if (this.walletConnector?.connected) {
+        if (this.walletConnector.connected) {
             await this.walletConnector?.killSession();
         }
         return true;
@@ -118,7 +118,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Method will be available once the Maiar wallet connect hook is implemented
      * @param _
      */
-    async signMessage(_: ISignableMessage): Promise<ISignableMessage> {
+    async signMessage(_: ISignableMessage) {
         throw new ErrNotImplemented();
     }
 
@@ -126,7 +126,7 @@ export class WalletConnectProvider implements IDappProvider {
      * Signs a transaction and returns it
      * @param transaction
      */
-    async signTransaction(transaction: ITransaction): Promise<ITransaction> {
+    async signTransaction(transaction: ITransaction) {
         if (!this.walletConnector) {
             Logger.error("signTransaction: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -143,14 +143,13 @@ export class WalletConnectProvider implements IDappProvider {
         }
 
         transaction.applySignature(Signature.fromHex(sig.signature), UserAddress.fromBech32(address));
-        return transaction;
     }
 
     /**
      * Signs an array of transactions and returns it
      * @param transactions
      */
-    async signTransactions(transactions: ITransaction[]): Promise<ITransaction[]> {
+    async signTransactions(transactions: ITransaction[]) {
         if (!this.walletConnector) {
             Logger.error("signTransactions: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -162,27 +161,19 @@ export class WalletConnectProvider implements IDappProvider {
             method: "erd_batch_sign",
             params
         });
-        if (!signatures) {
+        if (!signatures || !Array.isArray(signatures)) {
             Logger.error("signTransactions: Wallet Connect could not sign the transactions");
             throw new Error("Wallet Connect could not sign the transactions");
         }
 
-        if (Array.isArray(signatures)) {
-            if (transactions.length !== signatures.length) {
-                Logger.error("signTransactions: Wallet Connect could not sign the transactions. Invalid signatures.");
-                throw new Error("Wallet Connect could not sign the transactions. Invalid signatures.");
-            }
-
-            transactions.map((transaction, key: number) => 
-                transaction.applySignature(Signature.fromHex(signatures[key].signature), UserAddress.fromBech32(address))
-            );
-
-            return transactions;
+        if (transactions.length !== signatures.length) {
+            Logger.error("signTransactions: Wallet Connect could not sign the transactions. Invalid signatures.");
+            throw new Error("Wallet Connect could not sign the transactions. Invalid signatures.");
         }
 
-        transactions[0].applySignature(Signature.fromHex(signatures.signature), UserAddress.fromBech32(address));
-        
-        return transactions;
+        for (const [index, transaction] of transactions.entries()) {
+            transaction.applySignature(Signature.fromHex(signatures[index].signature), UserAddress.fromBech32(address))
+        }
     }
 
     /**
