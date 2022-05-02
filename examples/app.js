@@ -1,5 +1,6 @@
 import QRCodeModal from "@walletconnect/qrcode-modal";
 import { WalletConnectProvider } from "../out/walletConnectProvider";
+import { DummyTransaction } from "./dummyTransaction";
 
 const bridgeUrl = "https://bridge.walletconnect.org";
 
@@ -23,27 +24,16 @@ export class MyApp {
         QRCodeModal.open(connectorUri);
     }
 
-    async sign() {
-        let transaction = await this.provider.signTransaction(new DummyTransaction());
-        alert(`Transaction signature = ${transaction.signature}.`);
+    async signTransaction() {
+        const transaction = new DummyTransaction(1);
+        await this.provider.signTransaction(transaction);
+        alert(`Signature = ${transaction.signature}.`);
     }
-}
 
-function DummyTransaction() {
-    this.getNonce = () => 0;
-    this.getValue = () => "1000000000000000000";
-    this.getReceiver = () => "erd1uv40ahysflse896x4ktnh6ecx43u7cmy9wnxnvcyp7deg299a4sq6vaywa";
-    this.getData = () => "";
-    this.getGasPrice = () => 1000000000;
-    this.getGasLimit = () => 50000;
-    this.getChainID = () => "T";
-    this.getVersion = () => 1;
-    this.signature = "?";
-    this.signedBy = "?";
-
-    this.applySignature = function(signature, signedBy) {
-        this.signature = signature.hex();
-        this.signedBy = signedBy.bech32();
-        console.log("DummyTransaction.applySignature()", this.signature, this.signedBy);
+    async signTransactions() {
+        const transactions = [new DummyTransaction(2), new DummyTransaction(3)];
+        await this.provider.signTransactions(transactions);
+        const signatures = transactions.map(transaction => transaction.signature);
+        alert(`Signatures = ${JSON.stringify(signatures, null, 4)}.`);
     }
 }
