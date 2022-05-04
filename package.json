@@ -1,6 +1,6 @@
 {
   "name": "@elrondnetwork/erdjs-wallet-connect-provider",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Signing provider for dApps: Wallet Connect",
   "main": "out/index.js",
   "types": "out/index.d.js",
