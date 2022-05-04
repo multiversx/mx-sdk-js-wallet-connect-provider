@@ -118,7 +118,7 @@ export class WalletConnectProvider {
      * Method will be available once the Maiar wallet connect hook is implemented
      * @param _
      */
-    async signMessage(_: ISignableMessage) {
+    async signMessage<T extends ISignableMessage>(_: T): Promise<T> {
         throw new ErrNotImplemented();
     }
 
@@ -126,7 +126,7 @@ export class WalletConnectProvider {
      * Signs a transaction and returns it
      * @param transaction
      */
-    async signTransaction(transaction: ITransaction) {
+    async signTransaction<T extends ITransaction>(transaction: T): Promise<T> {
         if (!this.walletConnector) {
             Logger.error("signTransaction: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -143,13 +143,14 @@ export class WalletConnectProvider {
         }
 
         transaction.applySignature(Signature.fromHex(sig.signature), UserAddress.fromBech32(address));
+        return transaction;
     }
 
     /**
      * Signs an array of transactions and returns it
      * @param transactions
      */
-    async signTransactions(transactions: ITransaction[]) {
+    async signTransactions<T extends ITransaction>(transactions: T[]): Promise<T[]> {
         if (!this.walletConnector) {
             Logger.error("signTransactions: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
@@ -174,6 +175,8 @@ export class WalletConnectProvider {
         for (const [index, transaction] of transactions.entries()) {
             transaction.applySignature(Signature.fromHex(signatures[index].signature), UserAddress.fromBech32(address))
         }
+
+        return transactions;
     }
 
     /**
