@@ -1,0 +1,21 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>WalletConnect provider example</title>
+</head>
+
+<body>
+    <div>
+        <button onclick="myApp.login()">Login</button>
+        <button onclick="myApp.signTransaction()">Sign transaction</button>
+        <button onclick="myApp.signTransactions()">Sign transactions</button>
+    </div>
+
+    <script src="/out-examples/v2/app.js"></script>
+    <script>
+        let myApp = new app.MyApp();
+    </script>
+</body>
+
+</html>
