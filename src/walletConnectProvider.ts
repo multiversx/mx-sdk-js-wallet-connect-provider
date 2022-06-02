@@ -151,6 +151,11 @@ export class WalletConnectProvider {
      * @param transactions
      */
     async signTransactions<T extends ITransaction>(transactions: T[]): Promise<T[]> {
+        if(transactions.length === 1) {
+            const signedTransaction = await this.signTransaction(transactions[0]);
+            return [signedTransaction];
+        }
+
         if (!this.walletConnector) {
             Logger.error("signTransactions: Wallet Connect not initialised, call init() first");
             throw new Error("Wallet Connect not initialised, call init() first");
