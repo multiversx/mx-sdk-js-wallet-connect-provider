@@ -1,5 +1,5 @@
 import QRCodeModal from "@walletconnect/qrcode-modal";
-import { WalletConnectProvider } from "../out/walletConnectProvider";
+import { WalletConnectProvider } from "../src";
 import { DummyTransaction } from "./dummyTransaction";
 
 const bridgeUrl = "https://bridge.walletconnect.org";
