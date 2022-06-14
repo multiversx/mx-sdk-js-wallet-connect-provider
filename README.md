@@ -23,22 +23,42 @@ npm install
 npm run compile
 ```
 
-### Running the examples
-
-Make sure you have the package `http-server` installed globally.
+### Usage example
 
 ```
-npm install --global http-server
-```
+const bridgeUrl = "https://bridge.walletconnect.org";
 
-When you are ready, build the examples:
+export class MyApp {
+    constructor() {
+        const callbacks = {
+            onClientLogin: async function () {
+                alert("onClientLogin()");
+            },
+            onClientLogout: async function () {
+                alert("onClientLogout()");
+            }
+        };
 
-```
-npm run compile-examples
-```
+        this.provider = new WalletConnectProvider(bridgeUrl, callbacks);
+    }
 
-Start the server and navigate to `http://localhost:8080/examples/index.html`
+    async login() {
+        await this.provider.init();
+        let connectorUri = await this.provider.login();
+        QRCodeModal.open(connectorUri);
+    }
 
-```
-http-server --port=8080
+    async signTransaction() {
+        const transaction = new DummyTransaction(1);
+        await this.provider.signTransaction(transaction);
+        alert(`Signature = ${transaction.signature}.`);
+    }
+
+    async signTransactions() {
+        const transactions = [new DummyTransaction(2), new DummyTransaction(3)];
+        await this.provider.signTransactions(transactions);
+        const signatures = transactions.map(transaction => transaction.signature);
+        alert(`Signatures = ${JSON.stringify(signatures, null, 4)}.`);
+    }
+}
 ```
