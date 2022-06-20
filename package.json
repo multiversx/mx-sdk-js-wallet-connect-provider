@@ -9,9 +9,6 @@
   ],
   "scripts": {
     "compile": "tsc -p tsconfig.json",
-    "compile-examples": "npm run compile-example-v1 && npm run compile-example-v2",
-    "compile-example-v1": "npm run compile && browserify examples/v1/app.js -o out-examples/v1/app.js --standalone app -p esmify",
-    "compile-example-v2": "npm run compile && browserify examples/v2/app.js -o out-examples/v2/app.js --standalone app -p esmify",
     "pretest": "npm run compile",
     "prepare": "npm run compile"
   },
