@@ -3,7 +3,7 @@ import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_CHAIN_ID } from "./constants";
 import { Logger } from "./logger";
 import { ErrNotImplemented } from "./errors";
-import { Signature } from "./signature";
+import { Signature } from "./primitives";
 import { UserAddress } from "./userAddress";
 
 interface IClientConnect {
