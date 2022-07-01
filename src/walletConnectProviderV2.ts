@@ -13,6 +13,8 @@ interface IClientConnect {
   onClientLogout(): void;
 }
 
+export { PairingTypes, SessionTypes };
+
 export class WalletConnectProviderV2 {
   walletConnectV2Relay: string;
   walletConnectV2ProjectId: string;
@@ -74,7 +76,7 @@ export class WalletConnectProviderV2 {
     return new Promise((resolve, _) => resolve(this.isInitialized()));
   }
 
-  async connect(pairing?: PairingTypes.Struct): Promise<{
+  async connect(topic?: string): Promise<{
     uri?: string;
     approval: () => Promise<SessionTypes.Struct>;
   }> {
@@ -90,7 +92,7 @@ export class WalletConnectProviderV2 {
     const chains = [`${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`];
     try {
       const response = await this.walletConnector.connect({
-        pairingTopic: pairing?.topic,
+        pairingTopic: topic,
         requiredNamespaces: {
           [WALLETCONNECT_ELROND_NAMESPACE]: {
             methods,
@@ -102,8 +104,18 @@ export class WalletConnectProviderV2 {
 
       return response;
     } catch (e) {
-      Logger.error("connect: WalletConnect is unable to connect");
-      throw new Error("connect: WalletConnect is unable to connect");
+      if (topic) {
+        await this.logout(topic);
+        Logger.error(
+          "connect: WalletConnect is unable to connect to existing pairing"
+        );
+        throw new Error(
+          "connect: WalletConnect is unable to connect to existing pairing"
+        );
+      } else {
+        Logger.error("connect: WalletConnect is unable to connect");
+        throw new Error("connect: WalletConnect is unable to connect");
+      }
     }
   }
 
@@ -117,7 +129,7 @@ export class WalletConnectProviderV2 {
       throw new Error("WalletConnect is not initialized");
     }
 
-    if (this.session) {
+    if (typeof this.session !== "undefined") {
       await this.logout();
     }
 
@@ -136,20 +148,29 @@ export class WalletConnectProviderV2 {
   /**
    * Mocks a logout request by returning true
    */
-  async logout(): Promise<boolean> {
+  async logout(topic?: string): Promise<boolean> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error("logout: Wallet Connect not initialised, call init() first");
       throw new Error("Wallet Connect not initialised, call init() first");
     }
-    if (!this.session) {
-      Logger.error("logout: Wallet Connect Session is not connected");
-      throw new Error("Wallet Connect Session is not connected");
-    }
 
     try {
+      if (topic) {
+        const pairings = await this.getPairings();
+        if (pairings && pairings.length > 0) {
+          const newPairings = pairings.filter(
+            (pairing) => pairing.topic !== topic && !!pairing.active
+          );
+
+          this.pairings = newPairings;
+        }
+      }
+
       await this.walletConnector.disconnect({
-        topic: this.session.topic,
-        reason: ERROR.USER_DISCONNECTED.format(),
+        topic: topic ?? this.session!.topic,
+        reason: topic
+          ? ERROR.DELETED.format()
+          : ERROR.USER_DISCONNECTED.format(),
       });
     } catch {}
 
@@ -195,9 +216,10 @@ export class WalletConnectProviderV2 {
       throw new Error("Wallet Connect not initialised, call init() first");
     }
 
-    this.pairings = this.walletConnector.pairing.values;
-
-    return this.pairings;
+    return (
+      this.pairings ??
+      this.walletConnector.pairing.values.filter((pairing) => !!pairing.active)
+    );
   }
 
   /**
@@ -376,7 +398,8 @@ export class WalletConnectProviderV2 {
 
     const selectedNamespace =
       session.namespaces[WALLETCONNECT_ELROND_NAMESPACE];
-    if (selectedNamespace && selectedNamespace.accounts && !this.address) {
+
+    if (selectedNamespace && selectedNamespace.accounts) {
       // Use only the first address in case of multiple provided addresses
       const currentSession = selectedNamespace.accounts[0];
       const [namespace, reference, providedAddress] = currentSession.split(":");
@@ -400,6 +423,18 @@ export class WalletConnectProviderV2 {
     client.on("session_delete", () => {
       this.onClientConnect.onClientLogout();
     });
+
+    client.on("session_expire", () => {
+      this.onClientConnect.onClientLogout();
+    });
+
+    client.on("pairing_delete", () => {
+      this.onClientConnect.onClientLogout();
+    });
+
+    client.on("pairing_expire", () => {
+      this.onClientConnect.onClientLogout();
+    });
   }
 
   private async checkPersistedState(client: Client) {
@@ -407,14 +442,14 @@ export class WalletConnectProviderV2 {
       throw new Error("WalletConnect is not initialized");
     }
 
-    this.pairings = client.pairing.values;
+    this.pairings = client.pairing.values.filter((pairing) => !!pairing.active);
 
     if (typeof this.session !== "undefined") {
       return;
     }
 
     // Populates existing session to state (assume only the top one)
-    if (client.session.length) {
+    if (client.session.length && !this.address) {
       const lastKeyIndex = client.session.keys.length - 1;
       const session = client.session.get(client.session.keys[lastKeyIndex]);
 
