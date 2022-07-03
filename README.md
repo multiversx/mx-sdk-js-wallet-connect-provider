@@ -99,7 +99,7 @@ export class MyApp {
       QRCodeModal.open(uri);
     }
     try {
-      await this.provider.login(approval);
+      await this.provider.login({ approval });
     } catch (e) {
       QRCodeModal.close();
     }
