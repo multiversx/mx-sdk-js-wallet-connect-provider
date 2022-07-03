@@ -1,6 +1,6 @@
 import Client from "@walletconnect/sign-client";
 import { PairingTypes, SessionTypes } from "@walletconnect/types";
-import { ERROR } from "@walletconnect/utils";
+import { getSdkError } from "@walletconnect/utils";
 import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_NAMESPACE } from "./constants";
 import { Operation } from "./operation";
@@ -168,9 +168,7 @@ export class WalletConnectProviderV2 {
 
       await this.walletConnector.disconnect({
         topic: topic ?? this.session!.topic,
-        reason: topic
-          ? ERROR.DELETED.format()
-          : ERROR.USER_DISCONNECTED.format(),
+        reason: getSdkError("USER_DISCONNECTED"),
       });
     } catch {}
 
@@ -388,7 +386,7 @@ export class WalletConnectProviderV2 {
     if (this.session && this.walletConnector) {
       await this.walletConnector.disconnect({
         topic: this.session.topic,
-        reason: ERROR.USER_DISCONNECTED.format(),
+        reason: getSdkError("USER_DISCONNECTED"),
       });
     }
   }
