@@ -215,8 +215,7 @@ export class WalletConnectProviderV2 {
     }
 
     return (
-      this.pairings ??
-      this.walletConnector.pairing.values.filter((pairing) => !!pairing.active)
+      this.pairings ?? this.walletConnector.pairing.getAll({ active: true })
     );
   }
 
@@ -440,7 +439,7 @@ export class WalletConnectProviderV2 {
       throw new Error("WalletConnect is not initialized");
     }
 
-    this.pairings = client.pairing.values.filter((pairing) => !!pairing.active);
+    this.pairings = client.pairing.getAll({ active: true });
 
     if (typeof this.session !== "undefined") {
       return;
