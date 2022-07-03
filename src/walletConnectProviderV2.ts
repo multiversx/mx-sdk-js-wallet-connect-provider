@@ -76,7 +76,7 @@ export class WalletConnectProviderV2 {
     return new Promise((resolve, _) => resolve(this.isInitialized()));
   }
 
-  async connect(topic?: string): Promise<{
+  async connect(options?: { topic?: string }): Promise<{
     uri?: string;
     approval: () => Promise<SessionTypes.Struct>;
   }> {
@@ -92,7 +92,7 @@ export class WalletConnectProviderV2 {
     const chains = [`${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`];
     try {
       const response = await this.walletConnector.connect({
-        pairingTopic: topic,
+        pairingTopic: options?.topic,
         requiredNamespaces: {
           [WALLETCONNECT_ELROND_NAMESPACE]: {
             methods,
@@ -104,8 +104,8 @@ export class WalletConnectProviderV2 {
 
       return response;
     } catch (e) {
-      if (topic) {
-        await this.logout(topic);
+      if (options?.topic) {
+        await this.logout({ topic: options.topic });
         Logger.error(
           "connect: WalletConnect is unable to connect to existing pairing"
         );
@@ -119,7 +119,9 @@ export class WalletConnectProviderV2 {
     }
   }
 
-  async login(approval: () => Promise<SessionTypes.Struct>) {
+  async login(options?: {
+    approval?: () => Promise<SessionTypes.Struct>;
+  }): Promise<string> {
     this.isInitializing = true;
     if (typeof this.walletConnector === "undefined") {
       await this.connect();
@@ -134,32 +136,37 @@ export class WalletConnectProviderV2 {
     }
 
     try {
-      const session = await approval();
+      if (options && options.approval) {
+        const session = await options.approval();
+        const address = await this.onSessionConnected(session);
 
-      await this.onSessionConnected(session);
+        return address;
+      }
     } catch (e) {
       Logger.error("login: WalletConnect is unable to login");
       throw new Error("login: WalletConnect is unable to login");
     } finally {
       this.isInitializing = false;
     }
+
+    return "";
   }
 
   /**
    * Mocks a logout request by returning true
    */
-  async logout(topic?: string): Promise<boolean> {
+  async logout(options?: { topic?: string }): Promise<boolean> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error("logout: Wallet Connect not initialised, call init() first");
       throw new Error("Wallet Connect not initialised, call init() first");
     }
 
     try {
-      if (topic) {
+      if (options && options.topic) {
         const pairings = await this.getPairings();
         if (pairings && pairings.length > 0) {
           const newPairings = pairings.filter(
-            (pairing) => pairing.topic !== topic && !!pairing.active
+            (pairing) => pairing.topic !== options.topic && !!pairing.active
           );
 
           this.pairings = newPairings;
@@ -167,7 +174,7 @@ export class WalletConnectProviderV2 {
       }
 
       await this.walletConnector.disconnect({
-        topic: topic ?? this.session!.topic,
+        topic: options?.topic ?? this.session!.topic,
         reason: getSdkError("USER_DISCONNECTED"),
       });
     } catch {}
@@ -390,7 +397,9 @@ export class WalletConnectProviderV2 {
     }
   }
 
-  private async onSessionConnected(session: SessionTypes.Struct) {
+  private async onSessionConnected(
+    session: SessionTypes.Struct
+  ): Promise<string> {
     this.session = session;
 
     const selectedNamespace =
@@ -402,7 +411,11 @@ export class WalletConnectProviderV2 {
       const [namespace, reference, providedAddress] = currentSession.split(":");
       const [address, signature] = providedAddress.split(".");
       await this.loginAccount(address, signature);
+
+      return address;
     }
+
+    return "";
   }
 
   private async subscribeToEvents(client: Client) {
