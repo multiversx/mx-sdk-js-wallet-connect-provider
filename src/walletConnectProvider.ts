@@ -43,7 +43,7 @@ export class WalletConnectProvider {
             await this.loginAccount(address, signature);
         }
 
-        return true;
+        return Boolean(this.walletConnector.connected && this.walletConnector.accounts?.length);
     }
 
     /**
