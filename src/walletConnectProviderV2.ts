@@ -434,15 +434,7 @@ export class WalletConnectProviderV2 {
       this.onClientConnect.onClientLogout();
     });
 
-    client.on("session_expire", () => {
-      this.onClientConnect.onClientLogout();
-    });
-
     client.on("pairing_delete", () => {
-      this.onClientConnect.onClientLogout();
-    });
-
-    client.on("pairing_expire", () => {
       this.onClientConnect.onClientLogout();
     });
   }
