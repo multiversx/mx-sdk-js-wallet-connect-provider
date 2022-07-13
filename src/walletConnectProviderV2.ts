@@ -166,7 +166,8 @@ export class WalletConnectProviderV2 {
         const pairings = await this.getPairings();
         if (pairings && pairings.length > 0) {
           const newPairings = pairings.filter(
-            (pairing) => pairing.topic !== options.topic && !!pairing.active
+            (pairing) =>
+              pairing.topic !== options.topic && Boolean(pairing.active)
           );
 
           this.pairings = newPairings;
@@ -418,6 +419,21 @@ export class WalletConnectProviderV2 {
     return "";
   }
 
+  private async handleTopicUpdateEvent({ topic }: { topic: string }) {
+    if (typeof this.walletConnector === "undefined") {
+      throw new Error("WalletConnect is not initialized");
+    }
+
+    this.pairings = this.walletConnector.pairing.getAll({ active: true });
+    if (
+      this.address &&
+      !this.isInitializing &&
+      (this?.session?.topic === topic || this.pairings.length === 0)
+    ) {
+      this.onClientConnect.onClientLogout();
+    }
+  }
+
   private async subscribeToEvents(client: Client) {
     if (typeof client === "undefined") {
       throw new Error("WalletConnect is not initialized");
@@ -430,13 +446,10 @@ export class WalletConnectProviderV2 {
       this.onSessionConnected(updatedSession);
     });
 
-    client.on("session_delete", () => {
-      this.onClientConnect.onClientLogout();
-    });
-
-    client.on("pairing_delete", () => {
-      this.onClientConnect.onClientLogout();
-    });
+    client.on("session_expire", this.handleTopicUpdateEvent.bind(this));
+    client.on("session_delete", this.handleTopicUpdateEvent.bind(this));
+    client.on("pairing_expire", this.handleTopicUpdateEvent.bind(this));
+    client.on("pairing_delete", this.handleTopicUpdateEvent.bind(this));
   }
 
   private async checkPersistedState(client: Client) {
@@ -451,7 +464,7 @@ export class WalletConnectProviderV2 {
     }
 
     // Populates existing session to state (assume only the top one)
-    if (client.session.length && !this.address) {
+    if (client.session.length && !this.address && !this.isInitializing) {
       const lastKeyIndex = client.session.keys.length - 1;
       const session = client.session.get(client.session.keys[lastKeyIndex]);
 
