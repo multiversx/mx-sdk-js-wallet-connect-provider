@@ -409,9 +409,20 @@ export class WalletConnectProviderV2 {
     if (selectedNamespace && selectedNamespace.accounts) {
       // Use only the first address in case of multiple provided addresses
       const currentSession = selectedNamespace.accounts[0];
-      const [namespace, reference, providedAddress] = currentSession.split(":");
-      const [address, signature] = providedAddress.split(".");
-      await this.loginAccount(address, signature);
+      const [namespace, reference, address] = currentSession.split(":");
+
+      if (selectedNamespace.events.length > 0) {
+        const signatureEvent =
+          selectedNamespace.events[selectedNamespace.events.length - 1];
+        const [eventName, signature] = signatureEvent.split(":");
+
+        await this.loginAccount(
+          address,
+          eventName === "signature" ? signature : ""
+        );
+      } else {
+        await this.loginAccount(address, "");
+      }
 
       return address;
     }
