@@ -8,12 +8,25 @@ import { Logger } from "./logger";
 import { Signature, Address } from "./primitives";
 import { UserAddress } from "./userAddress";
 
+interface SessionEventTypes {
+  event: {
+    name: string;
+    data: any;
+  };
+  chainId: string;
+}
+
 interface IClientConnect {
   onClientLogin: () => void;
   onClientLogout(): void;
+  onClientEvent: (event: SessionEventTypes["event"]) => void;
 }
 
-export { PairingTypes, SessionTypes };
+export { PairingTypes, SessionTypes, SessionEventTypes };
+
+export enum WalletConnectV2Events {
+  erd_signLoginToken = "erd_signLoginToken",
+}
 
 export class WalletConnectProviderV2 {
   walletConnectV2Relay: string;
@@ -25,6 +38,7 @@ export class WalletConnectProviderV2 {
   walletConnector: Client | undefined;
   session: SessionTypes.Struct | undefined;
   pairings: PairingTypes.Struct[] | undefined;
+  events: SessionTypes.Namespace["events"] = [];
 
   private onClientConnect: IClientConnect;
 
@@ -76,7 +90,10 @@ export class WalletConnectProviderV2 {
     return new Promise((resolve, _) => resolve(this.isInitialized()));
   }
 
-  async connect(options?: { topic?: string }): Promise<{
+  async connect(options?: {
+    topic?: string;
+    events?: SessionTypes.Namespace["events"];
+  }): Promise<{
     uri?: string;
     approval: () => Promise<SessionTypes.Struct>;
   }> {
@@ -90,6 +107,7 @@ export class WalletConnectProviderV2 {
 
     const methods = Object.values(Operation);
     const chains = [`${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`];
+    const events = options?.events ?? [];
     try {
       const response = await this.walletConnector.connect({
         pairingTopic: options?.topic,
@@ -97,10 +115,11 @@ export class WalletConnectProviderV2 {
           [WALLETCONNECT_ELROND_NAMESPACE]: {
             methods,
             chains,
-            events: [],
+            events,
           },
         },
       });
+      this.events = events;
 
       return response;
     } catch (e) {
@@ -121,10 +140,11 @@ export class WalletConnectProviderV2 {
 
   async login(options?: {
     approval?: () => Promise<SessionTypes.Struct>;
+    token?: string;
   }): Promise<string> {
     this.isInitializing = true;
     if (typeof this.walletConnector === "undefined") {
-      await this.connect();
+      await this.connect({ events: this.events });
     }
 
     if (typeof this.walletConnector === "undefined") {
@@ -138,7 +158,26 @@ export class WalletConnectProviderV2 {
     try {
       if (options && options.approval) {
         const session = await options.approval();
-        const address = await this.onSessionConnected(session);
+
+        if (
+          this.events.includes(WalletConnectV2Events.erd_signLoginToken) &&
+          options.token
+        ) {
+          await this.walletConnector.emit({
+            topic: session.topic,
+            event: {
+              name: WalletConnectV2Events.erd_signLoginToken,
+              data: { token: options.token },
+            },
+            chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+          });
+          this.session = session;
+
+          // handle the login in the response event
+          return "";
+        }
+
+        const address = await this.onSessionConnected(session, "");
 
         return address;
       }
@@ -399,7 +438,8 @@ export class WalletConnectProviderV2 {
   }
 
   private async onSessionConnected(
-    session: SessionTypes.Struct
+    session: SessionTypes.Struct,
+    signature?: any
   ): Promise<string> {
     this.session = session;
 
@@ -411,18 +451,7 @@ export class WalletConnectProviderV2 {
       const currentSession = selectedNamespace.accounts[0];
       const [namespace, reference, address] = currentSession.split(":");
 
-      if (selectedNamespace.events.length > 0) {
-        const signatureEvent =
-          selectedNamespace.events[selectedNamespace.events.length - 1];
-        const [eventName, signature] = signatureEvent.split(":");
-
-        await this.loginAccount(
-          address,
-          eventName === "signature" ? signature : ""
-        );
-      } else {
-        await this.loginAccount(address, "");
-      }
+      await this.loginAccount(address, signature);
 
       return address;
     }
@@ -445,6 +474,36 @@ export class WalletConnectProviderV2 {
     }
   }
 
+  private async handleSessionEvents({
+    topic,
+    params,
+  }: {
+    topic: string;
+    params: SessionEventTypes;
+  }) {
+    if (typeof this.walletConnector === "undefined") {
+      throw new Error("WalletConnect is not initialized");
+    }
+
+    const { event } = params;
+    if (event?.name && this.session?.topic === topic) {
+      const eventData = event.data;
+      switch (event.name) {
+        case WalletConnectV2Events.erd_signLoginToken:
+          const { signatures } = eventData;
+          if (signatures.length > 0) {
+            // Use only the first signature in case of multiple provided signatures
+            await this.onSessionConnected(this.session, signatures[0]);
+          }
+          break;
+
+        default:
+          this.onClientConnect.onClientEvent(eventData);
+          break;
+      }
+    }
+  }
+
   private async subscribeToEvents(client: Client) {
     if (typeof client === "undefined") {
       throw new Error("WalletConnect is not initialized");
@@ -457,6 +516,7 @@ export class WalletConnectProviderV2 {
       this.onSessionConnected(updatedSession);
     });
 
+    client.on("session_event", this.handleSessionEvents.bind(this));
     client.on("session_expire", this.handleTopicUpdateEvent.bind(this));
     client.on("session_delete", this.handleTopicUpdateEvent.bind(this));
     client.on("pairing_expire", this.handleTopicUpdateEvent.bind(this));
