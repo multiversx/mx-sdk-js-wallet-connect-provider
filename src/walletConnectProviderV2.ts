@@ -177,7 +177,10 @@ export class WalletConnectProviderV2 {
           return "";
         }
 
-        const address = await this.onSessionConnected(session, "");
+        const address = await this.onSessionConnected({
+          session,
+          signature: "",
+        });
 
         return address;
       }
@@ -201,22 +204,17 @@ export class WalletConnectProviderV2 {
     }
 
     try {
-      if (options && options.topic) {
-        const pairings = await this.getPairings();
-        if (pairings && pairings.length > 0) {
-          const newPairings = pairings.filter(
-            (pairing) =>
-              pairing.topic !== options.topic && Boolean(pairing.active)
-          );
-
-          this.pairings = newPairings;
-        }
+      const topic = options?.topic ?? this.session?.topic;
+      if (topic) {
+        await this.walletConnector.disconnect({
+          topic,
+          reason: getSdkError("USER_DISCONNECTED"),
+        });
+        const newPairings = this.walletConnector.pairing
+          .getAll({ active: true })
+          .filter((pairing) => pairing.topic !== topic);
+        this.pairings = newPairings;
       }
-
-      await this.walletConnector.disconnect({
-        topic: options?.topic ?? this.session!.topic,
-        reason: getSdkError("USER_DISCONNECTED"),
-      });
     } catch {}
 
     return true;
@@ -418,40 +416,53 @@ export class WalletConnectProviderV2 {
     return transactions;
   }
 
-  private async loginAccount(address: string, signature?: string) {
-    if (this.addressIsValid(address)) {
-      this.address = address;
-      if (signature) {
-        this.signature = signature;
+  private async loginAccount(options?: {
+    address: string;
+    signature?: string;
+  }) {
+    if (!options) {
+      return;
+    }
+
+    if (this.addressIsValid(options.address)) {
+      this.address = options.address;
+      if (options.signature) {
+        this.signature = options.signature;
       }
       this.onClientConnect.onClientLogin();
       return;
     }
 
-    Logger.error(`Wallet Connect invalid address ${address}`);
-    if (this.session && this.walletConnector) {
+    Logger.error(`Wallet Connect invalid address ${options.address}`);
+    if (this.session?.topic && this.walletConnector) {
       await this.walletConnector.disconnect({
         topic: this.session.topic,
         reason: getSdkError("USER_DISCONNECTED"),
       });
+      const newPairings = this.walletConnector.pairing.getAll({ active: true });
+      this.pairings = newPairings;
     }
   }
 
-  private async onSessionConnected(
-    session: SessionTypes.Struct,
-    signature?: any
-  ): Promise<string> {
-    this.session = session;
+  private async onSessionConnected(options?: {
+    session: SessionTypes.Struct;
+    signature?: string;
+  }): Promise<string> {
+    if (!options) {
+      return "";
+    }
+
+    this.session = options.session;
 
     const selectedNamespace =
-      session.namespaces[WALLETCONNECT_ELROND_NAMESPACE];
+      options.session.namespaces[WALLETCONNECT_ELROND_NAMESPACE];
 
     if (selectedNamespace && selectedNamespace.accounts) {
       // Use only the first address in case of multiple provided addresses
       const currentSession = selectedNamespace.accounts[0];
       const [namespace, reference, address] = currentSession.split(":");
 
-      await this.loginAccount(address, signature);
+      await this.loginAccount({ address, signature: options.signature });
 
       return address;
     }
@@ -488,12 +499,16 @@ export class WalletConnectProviderV2 {
     const { event } = params;
     if (event?.name && this.session?.topic === topic) {
       const eventData = event.data;
+      const session = this.walletConnector.session.get(topic);
       switch (event.name) {
         case WalletConnectV2Events.erd_signLoginToken:
           const { signatures } = eventData;
           if (signatures.length > 0) {
             // Use only the first signature in case of multiple provided signatures
-            await this.onSessionConnected(this.session, signatures[0]);
+            await this.onSessionConnected({
+              session,
+              signature: signatures[0],
+            });
           }
           break;
 
@@ -513,7 +528,7 @@ export class WalletConnectProviderV2 {
       const { namespaces } = params;
       const _session = client.session.get(topic);
       const updatedSession = { ..._session, namespaces };
-      this.onSessionConnected(updatedSession);
+      this.onSessionConnected({ session: updatedSession });
     });
 
     client.on("session_event", this.handleSessionEvents.bind(this));
@@ -539,7 +554,7 @@ export class WalletConnectProviderV2 {
       const lastKeyIndex = client.session.keys.length - 1;
       const session = client.session.get(client.session.keys[lastKeyIndex]);
 
-      await this.onSessionConnected(session);
+      await this.onSessionConnected({ session });
       return session;
     }
 
