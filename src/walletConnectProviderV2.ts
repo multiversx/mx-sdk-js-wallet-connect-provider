@@ -370,10 +370,10 @@ export class WalletConnectProviderV2 {
     const wcTransactions = transactions.map((transaction) => {
       if (this.chainId !== transaction.getChainID().valueOf()) {
         Logger.error(
-          "signTransaction: Transaction Chain Id different than Connection Chain Id"
+          "signTransactions: Transaction Chain Id different than Connection Chain Id"
         );
         throw new Error(
-          "Transaction Chain Id different than Connection Chain Id"
+          "Transactions Chain Id different than Connection Chain Id"
         );
       }
       return transaction.toPlainObject(sender);
@@ -414,6 +414,43 @@ export class WalletConnectProviderV2 {
     }
 
     return transactions;
+  }
+
+  /**
+   * Sends a custom session_event
+   * @param event
+   */
+
+  async sendSessionEvent(options?: { event: SessionEventTypes["event"] }) {
+    if (typeof this.walletConnector === "undefined") {
+      Logger.error(
+        "sendSessionEvent: Wallet Connect not initialised, call init() first"
+      );
+      return;
+    }
+
+    if (typeof this.session === "undefined") {
+      Logger.error(
+        "sendSessionEvent: Missing Wallet Connect session, call login() first"
+      );
+      return;
+    }
+
+    try {
+      if (options?.event) {
+        await this.walletConnector.emit({
+          topic: this.session?.topic,
+          event: options.event,
+          chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+        });
+      }
+    } catch (error) {
+      Logger.error(
+        "sendSessionEvent: Error encountered while sending session event"
+      );
+    }
+
+    return true;
   }
 
   private async loginAccount(options?: {
