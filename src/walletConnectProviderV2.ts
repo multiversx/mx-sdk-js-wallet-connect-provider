@@ -84,10 +84,14 @@ export class WalletConnectProviderV2 {
   }
 
   /**
-   * Mocked function, returns isInitialized as an async function
+   * Returns true if provider is initialized and a valid session is set
    */
   isConnected(): Promise<boolean> {
-    return new Promise((resolve, _) => resolve(this.isInitialized()));
+    return new Promise((resolve, _) =>
+      resolve(
+        Boolean(this.isInitialized() && typeof this.session !== "undefined")
+      )
+    );
   }
 
   async connect(options?: {
@@ -421,7 +425,9 @@ export class WalletConnectProviderV2 {
    * @param event
    */
 
-  async sendSessionEvent(options?: { event: SessionEventTypes["event"] }) {
+  async sendSessionEvent(options?: {
+    event: SessionEventTypes["event"];
+  }): Promise<any> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
         "sendSessionEvent: Wallet Connect not initialised, call init() first"
@@ -456,7 +462,7 @@ export class WalletConnectProviderV2 {
   private async loginAccount(options?: {
     address: string;
     signature?: string;
-  }) {
+  }): Promise<void> {
     if (!options) {
       return;
     }
@@ -507,7 +513,11 @@ export class WalletConnectProviderV2 {
     return "";
   }
 
-  private async handleTopicUpdateEvent({ topic }: { topic: string }) {
+  private async handleTopicUpdateEvent({
+    topic,
+  }: {
+    topic: string;
+  }): Promise<void> {
     if (typeof this.walletConnector === "undefined") {
       throw new Error("WalletConnect is not initialized");
     }
@@ -528,7 +538,7 @@ export class WalletConnectProviderV2 {
   }: {
     topic: string;
     params: SessionEventTypes;
-  }) {
+  }): Promise<void> {
     if (typeof this.walletConnector === "undefined") {
       throw new Error("WalletConnect is not initialized");
     }
@@ -556,7 +566,7 @@ export class WalletConnectProviderV2 {
     }
   }
 
-  private async subscribeToEvents(client: Client) {
+  private async subscribeToEvents(client: Client): Promise<void> {
     if (typeof client === "undefined") {
       throw new Error("WalletConnect is not initialized");
     }
@@ -575,7 +585,9 @@ export class WalletConnectProviderV2 {
     client.on("pairing_delete", this.handleTopicUpdateEvent.bind(this));
   }
 
-  private async checkPersistedState(client: Client) {
+  private async checkPersistedState(
+    client: Client
+  ): Promise<SessionTypes.Struct | undefined> {
     if (typeof client === "undefined") {
       throw new Error("WalletConnect is not initialized");
     }

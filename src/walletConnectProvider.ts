@@ -54,10 +54,18 @@ export class WalletConnectProvider {
     }
 
     /**
-     * Mocked function, returns isInitialized as an async function
+     * Returns true if provider is connected and a valid account is set
      */
     isConnected(): Promise<boolean> {
-        return new Promise((resolve, _) => resolve(this.isInitialized()));
+        return new Promise((resolve, _) =>
+          resolve(
+            Boolean(
+                this.isInitialized()
+                && this.walletConnector?.connected
+                && this.address
+            )
+          )
+        );
     }
 
     async login(): Promise<string> {
