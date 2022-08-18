@@ -1,5 +1,6 @@
 export enum Operation {
-  SignTransaction = "erd_signTransaction",
-  SignTransactions = "erd_signTransactions",
-  SignMessage = "erd_signMessage",
+  SIGN_TRANSACTION = "erd_signTransaction",
+  SIGN_TRANSACTIONS = "erd_signTransactions",
+  SIGN_MESSAGE = "erd_signMessage",
+  SIGN_LOGIN_TOKEN = "erd_signLoginToken",
 }

@@ -1,5 +1,5 @@
 import Client from "@walletconnect/sign-client";
-import { PairingTypes, SessionTypes } from "@walletconnect/types";
+import { PairingTypes, SessionTypes, EngineTypes } from "@walletconnect/types";
 import { getSdkError } from "@walletconnect/utils";
 import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_NAMESPACE } from "./constants";
@@ -22,11 +22,7 @@ interface IClientConnect {
   onClientEvent: (event: SessionEventTypes["event"]) => void;
 }
 
-export { PairingTypes, SessionTypes, SessionEventTypes };
-
-export enum WalletConnectV2Events {
-  erd_signLoginToken = "erd_signLoginToken",
-}
+export { PairingTypes, SessionTypes, SessionEventTypes, EngineTypes };
 
 export class WalletConnectProviderV2 {
   walletConnectV2Relay: string;
@@ -67,7 +63,7 @@ export class WalletConnectProviderV2 {
       this.walletConnector = client;
       await this.subscribeToEvents(client);
       await this.checkPersistedState(client);
-    } catch (err) {
+    } catch (error) {
       throw new Error("connect: WalletConnect is unable to init");
     } finally {
       this.isInitializing = false;
@@ -126,7 +122,7 @@ export class WalletConnectProviderV2 {
       this.events = events;
 
       return response;
-    } catch (e) {
+    } catch (error) {
       if (options?.topic) {
         await this.logout({ topic: options.topic });
         Logger.error(
@@ -163,32 +159,37 @@ export class WalletConnectProviderV2 {
       if (options && options.approval) {
         const session = await options.approval();
 
-        if (
-          this.events.includes(WalletConnectV2Events.erd_signLoginToken) &&
-          options.token
-        ) {
-          await this.walletConnector.emit({
-            topic: session.topic,
-            event: {
-              name: WalletConnectV2Events.erd_signLoginToken,
-              data: { token: options.token },
-            },
+        if (options.token) {
+          const address = this.getAddressFromSession(session);
+          const { signature } = await this.walletConnector.request({
             chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+            topic: session.topic,
+            request: {
+              method: Operation.SIGN_LOGIN_TOKEN,
+              params: {
+                token: options.token,
+                address,
+              },
+            },
           });
-          this.session = session;
 
-          // handle the login in the response event
-          return "";
+          if (!signature) {
+            Logger.error("login: Wallet Connect could not sign login token");
+            throw new Error("Wallet Connect could not sign login token");
+          }
+
+          return await this.onSessionConnected({
+            session,
+            signature,
+          });
         }
 
-        const address = await this.onSessionConnected({
+        return await this.onSessionConnected({
           session,
           signature: "",
         });
-
-        return address;
       }
-    } catch (e) {
+    } catch (error) {
       Logger.error("login: WalletConnect is unable to login");
       throw new Error("login: WalletConnect is unable to login");
     } finally {
@@ -281,11 +282,11 @@ export class WalletConnectProviderV2 {
     }
 
     const address = await this.getAddress();
-    const { signature } = await this.walletConnector!.request({
+    const { signature } = await this.walletConnector.request({
       chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
       topic: this.session!.topic,
       request: {
-        method: Operation.SignMessage,
+        method: Operation.SIGN_MESSAGE,
         params: {
           address,
           message: message.message.toString(),
@@ -330,11 +331,11 @@ export class WalletConnectProviderV2 {
       );
     }
     const { signature }: { signature: string } =
-      await this.walletConnector!.request({
+      await this.walletConnector.request({
         chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
         topic: this.session!.topic,
         request: {
-          method: Operation.SignTransaction,
+          method: Operation.SIGN_TRANSACTION,
           params: {
             transaction: wcTransaction,
           },
@@ -383,11 +384,11 @@ export class WalletConnectProviderV2 {
       return transaction.toPlainObject(sender);
     });
     const { signatures }: { signatures: { signature: string }[] } =
-      await this.walletConnector!.request({
+      await this.walletConnector.request({
         chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
         topic: this.session!.topic,
         request: {
-          method: Operation.SignTransactions,
+          method: Operation.SIGN_TRANSACTIONS,
           params: {
             transactions: wcTransactions,
           },
@@ -421,42 +422,36 @@ export class WalletConnectProviderV2 {
   }
 
   /**
-   * Sends a custom session_event
-   * @param event
+   * Sends a custom request
+   * @param request
    */
 
-  async sendSessionEvent(options?: {
-    event: SessionEventTypes["event"];
+  async sendCustomRequest(options?: {
+    request: EngineTypes.RequestParams["request"];
   }): Promise<any> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "sendSessionEvent: Wallet Connect not initialised, call init() first"
+        "sendCustomRequest: Wallet Connect not initialised, call init() first"
       );
-      return;
+      throw new Error("Wallet Connect not initialised, call init() first");
     }
 
-    if (typeof this.session === "undefined") {
-      Logger.error(
-        "sendSessionEvent: Missing Wallet Connect session, call login() first"
-      );
-      return;
-    }
+    if (options?.request) {
+      const { response } = await this.walletConnector.request({
+        chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+        topic: this.session!.topic,
+        request: options.request,
+      });
 
-    try {
-      if (options?.event) {
-        await this.walletConnector.emit({
-          topic: this.session?.topic,
-          event: options.event,
-          chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
-        });
+      if (!response) {
+        Logger.error(
+          "sendCustomRequest: Wallet Connect could not send the custom request"
+        );
+        throw new Error("Wallet Connect could not send the custom request");
       }
-    } catch (error) {
-      Logger.error(
-        "sendSessionEvent: Error encountered while sending session event"
-      );
-    }
 
-    return true;
+      return response;
+    }
   }
 
   private async loginAccount(options?: {
@@ -496,18 +491,10 @@ export class WalletConnectProviderV2 {
     }
 
     this.session = options.session;
+    const address = this.getAddressFromSession(options.session);
 
-    const selectedNamespace =
-      options.session.namespaces[WALLETCONNECT_ELROND_NAMESPACE];
-
-    if (selectedNamespace && selectedNamespace.accounts) {
-      // Use only the first address in case of multiple provided addresses
-      const currentSession = selectedNamespace.accounts[0];
-      const [namespace, reference, address] = currentSession.split(":");
-
+    if (address) {
       await this.loginAccount({ address, signature: options.signature });
-
-      return address;
     }
 
     return "";
@@ -547,22 +534,8 @@ export class WalletConnectProviderV2 {
     if (event?.name && this.session?.topic === topic) {
       const eventData = event.data;
       const session = this.walletConnector.session.get(topic);
-      switch (event.name) {
-        case WalletConnectV2Events.erd_signLoginToken:
-          const { signatures } = eventData;
-          if (signatures.length > 0) {
-            // Use only the first signature in case of multiple provided signatures
-            await this.onSessionConnected({
-              session,
-              signature: signatures[0],
-            });
-          }
-          break;
 
-        default:
-          this.onClientConnect.onClientEvent(eventData);
-          break;
-      }
+      this.onClientConnect.onClientEvent(eventData);
     }
   }
 
@@ -617,5 +590,20 @@ export class WalletConnectProviderV2 {
     } catch {
       return false;
     }
+  }
+
+  private getAddressFromSession(session: SessionTypes.Struct): string {
+    const selectedNamespace =
+      session.namespaces[WALLETCONNECT_ELROND_NAMESPACE];
+
+    if (selectedNamespace && selectedNamespace.accounts) {
+      // Use only the first address in case of multiple provided addresses
+      const currentSession = selectedNamespace.accounts[0];
+      const [namespace, reference, address] = currentSession.split(":");
+
+      return address;
+    }
+
+    return "";
   }
 }
