@@ -35,6 +35,7 @@ export class WalletConnectProviderV2 {
   session: SessionTypes.Struct | undefined;
   pairings: PairingTypes.Struct[] | undefined;
   events: SessionTypes.Namespace["events"] = [];
+  methods: string[] = [];
 
   private onClientConnect: IClientConnect;
 
@@ -93,6 +94,7 @@ export class WalletConnectProviderV2 {
   async connect(options?: {
     topic?: string;
     events?: SessionTypes.Namespace["events"];
+    methods?: string[];
   }): Promise<{
     uri?: string;
     approval: () => Promise<SessionTypes.Struct>;
@@ -105,7 +107,7 @@ export class WalletConnectProviderV2 {
       throw new Error("WalletConnect is not initialized");
     }
 
-    const methods = Object.values(Operation);
+    const methods = [...Object.values(Operation), ...(options?.methods ?? [])];
     const chains = [`${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`];
     const events = options?.events ?? [];
     try {
@@ -120,6 +122,7 @@ export class WalletConnectProviderV2 {
         },
       });
       this.events = events;
+      this.methods = methods;
 
       return response;
     } catch (error) {
@@ -144,7 +147,7 @@ export class WalletConnectProviderV2 {
   }): Promise<string> {
     this.isInitializing = true;
     if (typeof this.walletConnector === "undefined") {
-      await this.connect({ events: this.events });
+      await this.connect();
     }
 
     if (typeof this.walletConnector === "undefined") {
