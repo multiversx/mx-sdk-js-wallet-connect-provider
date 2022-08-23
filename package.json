@@ -1,6 +1,6 @@
 {
   "name": "@elrondnetwork/erdjs-wallet-connect-provider",
-  "version": "2.1.0-alpha.9",
+  "version": "2.1.0-beta.0",
   "description": "Signing provider for dApps: Wallet Connect",
   "main": "out/index.js",
   "types": "out/index.d.js",
@@ -15,7 +15,7 @@
   "author": "ElrondNetwork",
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "@walletconnect/client": "1.7.8",
+    "@walletconnect/client": "1.8.0",
     "@walletconnect/sign-client": "2.0.0-rc.2",
     "@walletconnect/utils": "2.0.0-rc.2",
     "bech32": "1.1.4"

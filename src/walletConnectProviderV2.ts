@@ -52,7 +52,7 @@ export class WalletConnectProviderV2 {
   }
 
   /**
-   * Initiates wallet connect client.
+   * Initiates WalletConnect client.
    */
   async init(): Promise<boolean> {
     try {
@@ -177,8 +177,8 @@ export class WalletConnectProviderV2 {
           });
 
           if (!signature) {
-            Logger.error("login: Wallet Connect could not sign login token");
-            throw new Error("Wallet Connect could not sign login token");
+            Logger.error("login: WalletConnect could not sign login token");
+            throw new Error("WalletConnect could not sign login token");
           }
 
           return await this.onSessionConnected({
@@ -207,8 +207,8 @@ export class WalletConnectProviderV2 {
    */
   async logout(options?: { topic?: string }): Promise<boolean> {
     if (typeof this.walletConnector === "undefined") {
-      Logger.error("logout: Wallet Connect not initialised, call init() first");
-      throw new Error("Wallet Connect not initialised, call init() first");
+      Logger.error("logout: WalletConnect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     try {
@@ -223,48 +223,50 @@ export class WalletConnectProviderV2 {
           .filter((pairing) => pairing.topic !== topic);
         this.pairings = newPairings;
       }
-    } catch {}
+    } catch {
+      Logger.error("logout: WalletConnect was unable to logout");
+    }
 
     return true;
   }
 
   /**
-   * Fetches the wallet connect address
+   * Fetches the WalletConnect address
    */
   async getAddress(): Promise<string> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "getAddress: Wallet Connect not initialised, call init() first"
+        "getAddress: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     return this.address;
   }
 
   /**
-   * Fetches the wallet connect signature
+   * Fetches the WalletConnect signature
    */
   async getSignature(): Promise<string> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "getSignature: Wallet Connect not initialised, call init() first"
+        "getSignature: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     return this.signature;
   }
 
   /**
-   * Fetches the wallet connect pairings
+   * Fetches the WalletConnect pairings
    */
   async getPairings(): Promise<PairingTypes.Struct[] | undefined> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "getPairings: Wallet Connect not initialised, call init() first"
+        "getPairings: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     return (
@@ -273,15 +275,15 @@ export class WalletConnectProviderV2 {
   }
 
   /**
-   * Method will be available once the Maiar wallet connect hook is implemented
+   * Method will be available once the Maiar WalletConnect hook is implemented
    * @param _
    */
   async signMessage<T extends ISignableMessage>(message: T): Promise<T> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "signMessage: Wallet Connect not initialised, call init() first"
+        "signMessage: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     const address = await this.getAddress();
@@ -298,8 +300,8 @@ export class WalletConnectProviderV2 {
     });
 
     if (!signature) {
-      Logger.error("signMessage: Wallet Connect could not sign the message");
-      throw new Error("Wallet Connect could not sign the message");
+      Logger.error("signMessage: WalletConnect could not sign the message");
+      throw new Error("WalletConnect could not sign the message");
     }
 
     message.applySignature(
@@ -316,9 +318,9 @@ export class WalletConnectProviderV2 {
   async signTransaction<T extends ITransaction>(transaction: T): Promise<T> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "signTransaction: Wallet Connect not initialised, call init() first"
+        "signTransaction: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     const address = await this.getAddress();
@@ -347,9 +349,9 @@ export class WalletConnectProviderV2 {
 
     if (!signature) {
       Logger.error(
-        "signTransaction: Wallet Connect could not sign the transaction"
+        "signTransaction: WalletConnect could not sign the transaction"
       );
-      throw new Error("Wallet Connect could not sign the transaction");
+      throw new Error("WalletConnect could not sign the transaction");
     }
 
     transaction.applySignature(
@@ -368,9 +370,9 @@ export class WalletConnectProviderV2 {
   ): Promise<T[]> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "signTransactions: Wallet Connect not initialised, call init() first"
+        "signTransactions: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     const address = await this.getAddress();
@@ -400,17 +402,17 @@ export class WalletConnectProviderV2 {
 
     if (!signatures || !Array.isArray(signatures)) {
       Logger.error(
-        "signTransactions: Wallet Connect could not sign the transactions"
+        "signTransactions: WalletConnect could not sign the transactions"
       );
-      throw new Error("Wallet Connect could not sign the transactions");
+      throw new Error("WalletConnect could not sign the transactions");
     }
 
     if (transactions.length !== signatures.length) {
       Logger.error(
-        "signTransactions: Wallet Connect could not sign the transactions. Invalid signatures."
+        "signTransactions: WalletConnect could not sign the transactions. Invalid signatures."
       );
       throw new Error(
-        "Wallet Connect could not sign the transactions. Invalid signatures."
+        "WalletConnect could not sign the transactions. Invalid signatures."
       );
     }
 
@@ -434,9 +436,9 @@ export class WalletConnectProviderV2 {
   }): Promise<any> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(
-        "sendCustomRequest: Wallet Connect not initialised, call init() first"
+        "sendCustomRequest: WalletConnect not initialised, call init() first"
       );
-      throw new Error("Wallet Connect not initialised, call init() first");
+      throw new Error("WalletConnect not initialised, call init() first");
     }
 
     if (options?.request) {
@@ -448,9 +450,9 @@ export class WalletConnectProviderV2 {
 
       if (!response) {
         Logger.error(
-          "sendCustomRequest: Wallet Connect could not send the custom request"
+          "sendCustomRequest: WalletConnect could not send the custom request"
         );
-        throw new Error("Wallet Connect could not send the custom request");
+        throw new Error("WalletConnect could not send the custom request");
       }
 
       return response;
@@ -474,7 +476,7 @@ export class WalletConnectProviderV2 {
       return;
     }
 
-    Logger.error(`Wallet Connect invalid address ${options.address}`);
+    Logger.error(`WalletConnect invalid address ${options.address}`);
     if (this.session?.topic && this.walletConnector) {
       await this.walletConnector.disconnect({
         topic: this.session.topic,
