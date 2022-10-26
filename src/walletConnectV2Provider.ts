@@ -24,7 +24,7 @@ interface IClientConnect {
 
 export { PairingTypes, SessionTypes, SessionEventTypes, EngineTypes };
 
-export class WalletConnectProviderV2 {
+export class WalletConnectV2Provider {
   walletConnectV2Relay: string;
   walletConnectV2ProjectId: string;
   chainId: string = "";
@@ -227,6 +227,7 @@ export class WalletConnectProviderV2 {
     } catch {
       Logger.error("logout: WalletConnect was unable to logout");
     }
+    this.session = undefined;
 
     return true;
   }
@@ -585,7 +586,6 @@ export class WalletConnectProviderV2 {
     const { event } = params;
     if (event?.name && this.session?.topic === topic) {
       const eventData = event.data;
-      const session = this.walletConnector.session.get(topic);
 
       this.onClientConnect.onClientEvent(eventData);
     }
@@ -604,10 +604,8 @@ export class WalletConnectProviderV2 {
     });
 
     client.on("session_event", this.handleSessionEvents.bind(this));
-    client.on("session_expire", this.handleTopicUpdateEvent.bind(this));
     client.on("session_delete", this.handleTopicUpdateEvent.bind(this));
-    client.on("pairing_expire", this.handleTopicUpdateEvent.bind(this));
-    client.on("pairing_delete", this.handleTopicUpdateEvent.bind(this));
+    client.on("session_expire", this.handleTopicUpdateEvent.bind(this));
   }
 
   private async checkPersistedState(

@@ -1,2 +1,2 @@
 export * from "./walletConnectProvider";
-export * from "./walletConnectProviderV2";
+export * from "./walletConnectV2Provider";
