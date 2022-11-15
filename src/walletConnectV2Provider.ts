@@ -1,5 +1,10 @@
 import Client from "@walletconnect/sign-client";
-import { PairingTypes, SessionTypes, EngineTypes } from "@walletconnect/types";
+import {
+  PairingTypes,
+  SessionTypes,
+  EngineTypes,
+  SignClientTypes,
+} from "@walletconnect/types";
 import { getSdkError } from "@walletconnect/utils";
 import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_ELROND_NAMESPACE } from "./constants";
@@ -36,7 +41,8 @@ export class WalletConnectV2Provider {
   pairings: PairingTypes.Struct[] | undefined;
   events: SessionTypes.Namespace["events"] = [];
   methods: string[] = [];
-  logger: Client["logger"] | undefined;
+  options: Omit<SignClientTypes.Options, "relayUrl" | "projectId"> | undefined =
+    {};
 
   private onClientConnect: IClientConnect;
 
@@ -45,13 +51,13 @@ export class WalletConnectV2Provider {
     chainId: string,
     walletConnectV2Relay: string,
     walletConnectV2ProjectId: string,
-    logger?: Client["logger"]
+    options?: Omit<SignClientTypes.Options, "relayUrl" | "projectId">
   ) {
     this.onClientConnect = onClientConnect;
     this.chainId = chainId;
     this.walletConnectV2Relay = walletConnectV2Relay;
     this.walletConnectV2ProjectId = walletConnectV2ProjectId;
-    this.logger = logger;
+    this.options = options;
   }
 
   /**
@@ -62,7 +68,7 @@ export class WalletConnectV2Provider {
       const client = await Client.init({
         relayUrl: this.walletConnectV2Relay,
         projectId: this.walletConnectV2ProjectId,
-        logger: this.logger,
+        ...this.options,
       });
 
       this.walletConnector = client;
