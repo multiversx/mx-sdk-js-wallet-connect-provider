@@ -36,6 +36,7 @@ export class WalletConnectV2Provider {
   pairings: PairingTypes.Struct[] | undefined;
   events: SessionTypes.Namespace["events"] = [];
   methods: string[] = [];
+  logger: Client["logger"] | undefined;
 
   private onClientConnect: IClientConnect;
 
@@ -43,12 +44,14 @@ export class WalletConnectV2Provider {
     onClientConnect: IClientConnect,
     chainId: string,
     walletConnectV2Relay: string,
-    walletConnectV2ProjectId: string
+    walletConnectV2ProjectId: string,
+    logger?: Client["logger"]
   ) {
     this.onClientConnect = onClientConnect;
     this.chainId = chainId;
     this.walletConnectV2Relay = walletConnectV2Relay;
     this.walletConnectV2ProjectId = walletConnectV2ProjectId;
+    this.logger = logger;
   }
 
   /**
@@ -59,6 +62,7 @@ export class WalletConnectV2Provider {
       const client = await Client.init({
         relayUrl: this.walletConnectV2Relay,
         projectId: this.walletConnectV2ProjectId,
+        logger: this.logger,
       });
 
       this.walletConnector = client;
@@ -290,6 +294,7 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error("signMessage: Session is not connected");
+      this.onClientConnect.onClientLogout();
       throw new Error("Session is not connected");
     }
 
@@ -333,6 +338,7 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error("signTransaction: Session is not connected");
+      this.onClientConnect.onClientLogout();
       throw new Error("Session is not connected");
     }
 
@@ -390,6 +396,7 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error("signTransactions: Session is not connected");
+      this.onClientConnect.onClientLogout();
       throw new Error("Session is not connected");
     }
 
@@ -461,6 +468,7 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error("sendCustomRequest: Session is not connected");
+      this.onClientConnect.onClientLogout();
       throw new Error("Session is not connected");
     }
 
@@ -495,6 +503,7 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error("ping: Session is not connected");
+      this.onClientConnect.onClientLogout();
       throw new Error("Session is not connected");
     }
 
