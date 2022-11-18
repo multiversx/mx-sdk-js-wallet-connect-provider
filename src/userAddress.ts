@@ -2,8 +2,6 @@ import * as bech32 from "bech32";
 import { ErrBadAddress } from "./errors";
 import { IAddress } from "./interface";
 
-const HRP = "erd";
-
 export class UserAddress implements IAddress {
     private readonly value: string;
 
@@ -18,10 +16,6 @@ export class UserAddress implements IAddress {
             decoded = bech32.decode(value);
         } catch (err: any) {
             throw new ErrBadAddress(value, err);
-        }
-
-        if (decoded.prefix != HRP) {
-            throw new ErrBadAddress(value);
         }
 
         return new UserAddress(value);
