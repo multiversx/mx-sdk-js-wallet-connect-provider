@@ -1,6 +1,6 @@
 import WalletClient from "@walletconnect/client";
 import { ISignableMessage, ITransaction } from "./interface";
-import { WALLETCONNECT_ELROND_CHAIN_ID } from "./constants";
+import { WALLETCONNECT_MULTIVERSX_CHAIN_ID } from "./constants";
 import { Logger } from "./logger";
 import { ErrNotImplemented } from "./errors";
 import { Signature } from "./signature";
@@ -71,7 +71,7 @@ export class WalletConnectProvider {
             return "";
         }
 
-        await this.walletConnector?.createSession({ chainId: WALLETCONNECT_ELROND_CHAIN_ID });
+        await this.walletConnector?.createSession({ chainId: WALLETCONNECT_MULTIVERSX_CHAIN_ID });
         if (!this.walletConnector?.uri) { return ""; }
         return this.walletConnector?.uri;
     }
@@ -114,10 +114,6 @@ export class WalletConnectProvider {
         return this.signature;
     }
 
-    /**
-     * Method will be available once the Maiar wallet connect hook is implemented
-     * @param _
-     */
     async signMessage<T extends ISignableMessage>(_: T): Promise<T> {
         throw new ErrNotImplemented();
     }
