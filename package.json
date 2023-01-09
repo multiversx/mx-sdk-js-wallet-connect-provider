@@ -1,6 +1,6 @@
 {
-  "name": "@elrondnetwork/erdjs-wallet-connect-provider",
-  "version": "2.0.3",
+  "name": "@multiversx/erdjs-wallet-connect-provider",
+  "version": "3.0.0",
   "description": "Signing provider for dApps: Wallet Connect",
   "main": "out/index.js",
   "types": "out/index.d.js",
@@ -12,8 +12,8 @@
     "pretest": "npm run compile",
     "prepare": "npm run compile"
   },
-  "author": "ElrondNetwork",
-  "license": "GPL-3.0-or-later",
+  "author": "MultiversX",
+  "license": "MIT",
   "dependencies": {
     "@walletconnect/client": "1.6.5",
     "bech32": "1.1.4"
