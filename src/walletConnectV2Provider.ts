@@ -7,7 +7,7 @@ import {
 } from "@walletconnect/types";
 import { getSdkError } from "@walletconnect/utils";
 import { ISignableMessage, ITransaction } from "./interface";
-import { WALLETCONNECT_ELROND_NAMESPACE } from "./constants";
+import { WALLETCONNECT_MULTIVERSX_NAMESPACE } from "./constants";
 import { Operation } from "./operation";
 import { Logger } from "./logger";
 import { Signature, Address } from "./primitives";
@@ -135,13 +135,13 @@ export class WalletConnectV2Provider {
     }
 
     const methods = [...Object.values(Operation), ...(options?.methods ?? [])];
-    const chains = [`${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`];
+    const chains = [`${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`];
     const events = options?.events ?? [];
     try {
       const response = await this.walletConnector.connect({
         pairingTopic: options?.topic,
         requiredNamespaces: {
-          [WALLETCONNECT_ELROND_NAMESPACE]: {
+          [WALLETCONNECT_MULTIVERSX_NAMESPACE]: {
             methods,
             chains,
             events,
@@ -195,7 +195,7 @@ export class WalletConnectV2Provider {
           const address = this.getAddressFromSession(session);
           const { signature }: { signature: string } =
             await this.walletConnector.request({
-              chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+              chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
               topic: session.topic,
               request: {
                 method: Operation.SIGN_LOGIN_TOKEN,
@@ -332,7 +332,7 @@ export class WalletConnectV2Provider {
     const address = await this.getAddress();
     const { signature }: { signature: Buffer } =
       await this.walletConnector.request({
-        chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+        chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
         topic: this.getCurrentTopic(this.walletConnector),
         request: {
           method: Operation.SIGN_MESSAGE,
@@ -405,7 +405,7 @@ export class WalletConnectV2Provider {
     try {
       const { signature }: { signature: string } =
         await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
           request: {
             method: Operation.SIGN_TRANSACTION,
@@ -475,7 +475,7 @@ export class WalletConnectV2Provider {
     try {
       const { signatures }: { signatures: { signature: string }[] } =
         await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
           request: {
             method: Operation.SIGN_TRANSACTIONS,
@@ -538,7 +538,7 @@ export class WalletConnectV2Provider {
     if (options?.request) {
       const { response }: { response: any } =
         await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_ELROND_NAMESPACE}:${this.chainId}`,
+          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
           request: options.request,
         });
@@ -807,7 +807,7 @@ export class WalletConnectV2Provider {
 
   private getAddressFromSession(session: SessionTypes.Struct): string {
     const selectedNamespace =
-      session.namespaces[WALLETCONNECT_ELROND_NAMESPACE];
+      session.namespaces[WALLETCONNECT_MULTIVERSX_NAMESPACE];
 
     if (selectedNamespace && selectedNamespace.accounts) {
       // Use only the first address in case of multiple provided addresses
