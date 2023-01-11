@@ -1,6 +1,6 @@
 {
-  "name": "@multiversx/erdjs-wallet-connect-provider",
-  "version": "3.0.0",
+  "name": "@multiversx/sdk-wallet-connect-provider",
+  "version": "3.0.1",
   "description": "Signing provider for dApps: Wallet Connect",
   "main": "out/index.js",
   "types": "out/index.d.js",
