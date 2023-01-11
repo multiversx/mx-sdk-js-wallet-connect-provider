@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-erdjs:
+  build:
     runs-on: ubuntu-latest
 
     strategy:
