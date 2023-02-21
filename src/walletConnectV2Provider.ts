@@ -7,8 +7,12 @@ import {
 } from "@walletconnect/types";
 import { getSdkError } from "@walletconnect/utils";
 import { ISignableMessage, ITransaction } from "./interface";
-import { WALLETCONNECT_MULTIVERSX_NAMESPACE } from "./constants";
-import { Operation } from "./operation";
+import {
+  WALLETCONNECT_MULTIVERSX_NAMESPACE,
+  WALLETCONNECT_OLD_NAMESPACE,
+  WALLETCONNECT_OLD_METHOD_PREFIX,
+} from "./constants";
+import { Operation, OldOperation } from "./operation";
 import { Logger } from "./logger";
 import { Signature, Address } from "./primitives";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
@@ -42,6 +46,7 @@ export class WalletConnectV2Provider {
   chainId: string = "";
   address: string = "";
   signature: string = "";
+  namespace: string = WALLETCONNECT_OLD_NAMESPACE;
   isInitializing: boolean = false;
   walletConnector: Client | undefined;
   session: SessionTypes.Struct | undefined;
@@ -70,6 +75,7 @@ export class WalletConnectV2Provider {
   reset() {
     this.address = "";
     this.signature = "";
+    this.namespace = WALLETCONNECT_OLD_NAMESPACE;
     this.session = undefined;
   }
 
@@ -134,13 +140,38 @@ export class WalletConnectV2Provider {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    const methods = [...Object.values(Operation), ...(options?.methods ?? [])];
+    const methods = [
+      ...Object.values(Operation),
+      ...(options?.methods
+        ? options.methods.filter((method) =>
+            method.startsWith(WALLETCONNECT_MULTIVERSX_NAMESPACE)
+          )
+        : []),
+    ];
+    const oldMethods = [
+      ...Object.values(OldOperation),
+      ...(options?.methods
+        ? options.methods.filter((method) =>
+            method.startsWith(WALLETCONNECT_OLD_METHOD_PREFIX)
+          )
+        : []),
+    ];
+
+    // Temporarily accept requests from both multiversx and elrond namespaces
     const chains = [`${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`];
+    const oldChains = [`${WALLETCONNECT_OLD_NAMESPACE}:${this.chainId}`];
     const events = options?.events ?? [];
     try {
       const response = await this.walletConnector.connect({
         pairingTopic: options?.topic,
         requiredNamespaces: {
+          [WALLETCONNECT_OLD_NAMESPACE]: {
+            methods: oldMethods,
+            chains: oldChains,
+            events,
+          },
+        },
+        optionalNamespaces: {
           [WALLETCONNECT_MULTIVERSX_NAMESPACE]: {
             methods,
             chains,
@@ -191,14 +222,25 @@ export class WalletConnectV2Provider {
       if (options && options.approval) {
         const session = await options.approval();
 
+        if (session?.namespaces?.[WALLETCONNECT_OLD_NAMESPACE]) {
+          this.namespace = WALLETCONNECT_OLD_NAMESPACE;
+        }
+
+        if (session?.namespaces?.[WALLETCONNECT_MULTIVERSX_NAMESPACE]) {
+          this.namespace = WALLETCONNECT_MULTIVERSX_NAMESPACE;
+        }
+
         if (options.token) {
           const address = this.getAddressFromSession(session);
           const { signature }: { signature: string } =
             await this.walletConnector.request({
-              chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+              chainId: `${this.namespace}:${this.chainId}`,
               topic: session.topic,
               request: {
-                method: Operation.SIGN_LOGIN_TOKEN,
+                method:
+                  this.namespace === WALLETCONNECT_MULTIVERSX_NAMESPACE
+                    ? Operation.SIGN_LOGIN_TOKEN
+                    : OldOperation.SIGN_LOGIN_TOKEN,
                 params: {
                   token: options.token,
                   address,
@@ -332,10 +374,13 @@ export class WalletConnectV2Provider {
     const address = await this.getAddress();
     const { signature }: { signature: Buffer } =
       await this.walletConnector.request({
-        chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+        chainId: `${this.namespace}:${this.chainId}`,
         topic: this.getCurrentTopic(this.walletConnector),
         request: {
-          method: Operation.SIGN_MESSAGE,
+          method:
+            this.namespace === WALLETCONNECT_MULTIVERSX_NAMESPACE
+              ? Operation.SIGN_MESSAGE
+              : OldOperation.SIGN_MESSAGE,
           params: {
             address,
             message: message.message.toString(),
@@ -405,10 +450,13 @@ export class WalletConnectV2Provider {
     try {
       const { signature }: { signature: string } =
         await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+          chainId: `${this.namespace}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
           request: {
-            method: Operation.SIGN_TRANSACTION,
+            method:
+              this.namespace === WALLETCONNECT_MULTIVERSX_NAMESPACE
+                ? Operation.SIGN_TRANSACTION
+                : OldOperation.SIGN_TRANSACTION,
             params: {
               transaction: wcTransaction,
             },
@@ -475,10 +523,13 @@ export class WalletConnectV2Provider {
     try {
       const { signatures }: { signatures: { signature: string }[] } =
         await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+          chainId: `${this.namespace}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
           request: {
-            method: Operation.SIGN_TRANSACTIONS,
+            method:
+              this.namespace === WALLETCONNECT_MULTIVERSX_NAMESPACE
+                ? Operation.SIGN_TRANSACTIONS
+                : OldOperation.SIGN_TRANSACTIONS,
             params: {
               transactions: wcTransactions,
             },
@@ -535,10 +586,31 @@ export class WalletConnectV2Provider {
       );
     }
 
-    if (options?.request) {
+    if (options?.request?.method) {
+      // send the event based on the connected namespace even if the event uses a different namespace
+      // Dapps don't know the current connected namespace, thus, we handle it here
+      if (
+        options.request.method.startsWith(WALLETCONNECT_OLD_METHOD_PREFIX) &&
+        this.namespace === WALLETCONNECT_MULTIVERSX_NAMESPACE
+      ) {
+        options.request.method.replace(
+          WALLETCONNECT_OLD_METHOD_PREFIX,
+          this.namespace
+        );
+      }
+      if (
+        options.request.method.startsWith(WALLETCONNECT_MULTIVERSX_NAMESPACE) &&
+        this.namespace === WALLETCONNECT_OLD_NAMESPACE
+      ) {
+        options.request.method.replace(
+          WALLETCONNECT_MULTIVERSX_NAMESPACE,
+          WALLETCONNECT_OLD_METHOD_PREFIX
+        );
+      }
+
       const { response }: { response: any } =
         await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+          chainId: `${this.namespace}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
           request: options.request,
         });
@@ -629,6 +701,16 @@ export class WalletConnectV2Provider {
     }
 
     this.session = options.session;
+
+    // If both are present use the main one instead of the old one
+    if (options.session?.namespaces?.[WALLETCONNECT_OLD_NAMESPACE]) {
+      this.namespace = WALLETCONNECT_OLD_NAMESPACE;
+    }
+
+    if (options.session?.namespaces?.[WALLETCONNECT_MULTIVERSX_NAMESPACE]) {
+      this.namespace = WALLETCONNECT_MULTIVERSX_NAMESPACE;
+    }
+
     const address = this.getAddressFromSession(options.session);
 
     if (address) {
@@ -807,7 +889,7 @@ export class WalletConnectV2Provider {
 
   private getAddressFromSession(session: SessionTypes.Struct): string {
     const selectedNamespace =
-      session.namespaces[WALLETCONNECT_MULTIVERSX_NAMESPACE];
+      session.namespaces[this.namespace ?? WALLETCONNECT_MULTIVERSX_NAMESPACE];
 
     if (selectedNamespace && selectedNamespace.accounts) {
       // Use only the first address in case of multiple provided addresses
