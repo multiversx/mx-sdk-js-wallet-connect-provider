@@ -587,22 +587,25 @@ export class WalletConnectV2Provider {
     }
 
     if (options?.request?.method) {
+      const request = { ...options.request };
+      let { method } = request;
+
       // send the event based on the connected namespace even if the event uses a different namespace
       // Dapps don't know the current connected namespace, thus, we handle it here
       if (
-        options.request.method.startsWith(WALLETCONNECT_OLD_METHOD_PREFIX) &&
+        request.method.startsWith(WALLETCONNECT_OLD_METHOD_PREFIX) &&
         this.namespace === WALLETCONNECT_MULTIVERSX_NAMESPACE
       ) {
-        options.request.method.replace(
+        method = method.replace(
           WALLETCONNECT_OLD_METHOD_PREFIX,
           this.namespace
         );
       }
       if (
-        options.request.method.startsWith(WALLETCONNECT_MULTIVERSX_NAMESPACE) &&
+        request.method.startsWith(WALLETCONNECT_MULTIVERSX_NAMESPACE) &&
         this.namespace === WALLETCONNECT_OLD_NAMESPACE
       ) {
-        options.request.method.replace(
+        method = method.replace(
           WALLETCONNECT_MULTIVERSX_NAMESPACE,
           WALLETCONNECT_OLD_METHOD_PREFIX
         );
@@ -612,7 +615,7 @@ export class WalletConnectV2Provider {
         await this.walletConnector.request({
           chainId: `${this.namespace}:${this.chainId}`,
           topic: this.getCurrentTopic(this.walletConnector),
-          request: options.request,
+          request: { ...request, method },
         });
 
       if (!response) {
