@@ -3,7 +3,7 @@ import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_MULTIVERSX_CHAIN_ID } from "./constants";
 import { Logger } from "./logger";
 import { ErrNotImplemented } from "./errors";
-import { Signature } from "./signature";
+import { Signature } from "./primitives";
 import { UserAddress } from "./userAddress";
 
 interface IClientConnect {
@@ -54,10 +54,18 @@ export class WalletConnectProvider {
     }
 
     /**
-     * Mocked function, returns isInitialized as an async function
+     * Returns true if provider is connected and a valid account is set
      */
     isConnected(): Promise<boolean> {
-        return new Promise((resolve, _) => resolve(this.isInitialized()));
+        return new Promise((resolve, _) =>
+          resolve(
+            Boolean(
+                this.isInitialized()
+                && this.walletConnector?.connected
+                && this.address
+            )
+          )
+        );
     }
 
     async login(): Promise<string> {
