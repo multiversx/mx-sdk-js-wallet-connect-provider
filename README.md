@@ -79,12 +79,14 @@ const callbacks = {
     },
     onClientLogout: async function () {
         console.log("onClientLogout()");
+    },
+    onClientEvent: async function (event) {
+        console.log("onClientEvent()", event);
     }
 };
 
 const provider = new WalletConnectProvider(callbacks, chainId, relayUrl, projectId);
 ```
-
 
 > You can customize the Core WalletConnect functionality by passing `WalletConnectProvider` an optional 5th parameter: `options`
 For example `metadata` and `storage` for [React Native](https://docs.walletconnect.com/2.0/javascript/guides/react-native) or `{ logger: 'debug' }` for a detailed under the hood logging
