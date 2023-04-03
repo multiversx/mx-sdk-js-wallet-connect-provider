@@ -7,7 +7,10 @@ import {
 } from "@walletconnect/types";
 import { getSdkError, isValidArray } from "@walletconnect/utils";
 import { ISignableMessage, ITransaction } from "./interface";
-import { WALLETCONNECT_MULTIVERSX_NAMESPACE } from "./constants";
+import {
+  WALLETCONNECT_MULTIVERSX_NAMESPACE,
+  WALLETCONNECT_MULTIVERSX_METHODS,
+} from "./constants";
 import { Operation } from "./operation";
 import { Logger } from "./logger";
 import { Signature, Address } from "./primitives";
@@ -682,7 +685,9 @@ export class WalletConnectV2Provider {
     if (typeof this.walletConnector === "undefined") {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
-    if (this.session && this.session?.topic !== topic) return;
+    if (this.session && this.session?.topic !== topic) {
+      return;
+    }
 
     const { event } = params;
     if (event?.name && this.getCurrentTopic(this.walletConnector) === topic) {
@@ -700,8 +705,12 @@ export class WalletConnectV2Provider {
     try {
       // Session Events
       client.on("session_update", ({ topic, params }) => {
-        if (typeof this.walletConnector === "undefined") return;
-        if (this.session && this.session?.topic !== topic) return;
+        if (typeof this.walletConnector === "undefined") {
+          return;
+        }
+        if (this.session && this.session?.topic !== topic) {
+          return;
+        }
 
         const { namespaces } = params;
         const _session = client.session.get(topic);
@@ -713,8 +722,12 @@ export class WalletConnectV2Provider {
       client.on("session_event", this.handleSessionEvents.bind(this));
 
       client.on("session_delete", async ({ topic }) => {
-        if (!this.session) return;
-        if (this.session && this.session?.topic !== topic) return;
+        if (!this.session) {
+          return;
+        }
+        if (this.session && this.session?.topic !== topic) {
+          return;
+        }
 
         Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionDeleted);
 
@@ -723,20 +736,26 @@ export class WalletConnectV2Provider {
         this.reset();
         await this.cleanupPendingPairings({ deletePairings: true });
       });
+
       client.on("session_expire", ({ topic }) => {
-        if (!this.session) return;
-        if (this.session && this.session?.topic !== topic) return;
+        if (!this.session) {
+          return;
+        }
+        if (this.session && this.session?.topic !== topic) {
+          return;
+        }
 
         Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionExpired);
         this.onClientConnect.onClientLogout();
       });
 
       // Pairing Events
-      client?.core?.pairing?.events.on(
+      client.core?.pairing?.events.on(
         "pairing_delete",
         this.handleTopicUpdateEvent.bind(this)
       );
-      client?.core?.pairing?.events.on(
+
+      client.core?.pairing?.events.on(
         "pairing_expire",
         this.handleTopicUpdateEvent.bind(this)
       );
@@ -774,7 +793,7 @@ export class WalletConnectV2Provider {
   }
 
   private async cleanupPendingPairings(
-    opts: { deletePairings?: boolean } = {}
+    options: { deletePairings?: boolean } = {}
   ): Promise<void> {
     if (typeof this.walletConnector === "undefined") {
       return;
@@ -782,15 +801,17 @@ export class WalletConnectV2Provider {
 
     try {
       const inactivePairings =
-        this.walletConnector?.core?.pairing?.pairings.getAll();
+        this.walletConnector.core?.pairing?.pairings?.getAll();
 
-      if (!isValidArray(inactivePairings)) return;
+      if (!isValidArray(inactivePairings)) {
+        return;
+      }
 
       for (const pairing of inactivePairings) {
-        if (opts?.deletePairings) {
-          this.walletConnector?.core?.expirer?.set(pairing.topic, 0);
+        if (options.deletePairings) {
+          this.walletConnector.core?.expirer?.set(pairing.topic, 0);
         } else {
-          await this.walletConnector?.core?.relayer?.subscriber?.unsubscribe(
+          await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
             pairing.topic
           );
         }
@@ -807,13 +828,13 @@ export class WalletConnectV2Provider {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    const sessions = client
+    const acknowledgedSessions = client
       .find(this.getConnectionParams())
       .filter((s) => s.acknowledged);
 
-    if (sessions.length > 0) {
-      const lastKeyIndex = sessions.length - 1;
-      const session = sessions[lastKeyIndex];
+    if (acknowledgedSessions.length > 0) {
+      const lastKeyIndex = acknowledgedSessions.length - 1;
+      const session = acknowledgedSessions[lastKeyIndex];
 
       return session;
     } else if (client.session.length > 0) {
@@ -856,7 +877,10 @@ export class WalletConnectV2Provider {
   private getConnectionParams(
     options?: ConnectParamsTypes
   ): EngineTypes.FindParams {
-    const methods = [...Object.values(Operation), ...(options?.methods ?? [])];
+    const methods = [
+      ...WALLETCONNECT_MULTIVERSX_METHODS,
+      ...(options?.methods ?? []),
+    ];
     const chains = [`${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`];
     const events = options?.events ?? [];
 
