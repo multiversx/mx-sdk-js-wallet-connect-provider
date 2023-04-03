@@ -154,8 +154,15 @@ export class WalletConnectV2Provider {
         pairingTopic: options?.topic,
         ...connectParams,
       });
-      this.events = connectParams?.requiredNamespaces?.[0]?.events;
-      this.methods = connectParams?.requiredNamespaces?.[0]?.methods;
+      this.events =
+        connectParams?.requiredNamespaces?.[
+          WALLETCONNECT_MULTIVERSX_NAMESPACE
+        ]?.events;
+
+      this.methods =
+        connectParams?.requiredNamespaces?.[
+          WALLETCONNECT_MULTIVERSX_NAMESPACE
+        ]?.methods;
 
       return response;
     } catch (error) {
