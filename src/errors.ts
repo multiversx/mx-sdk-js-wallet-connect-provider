@@ -41,6 +41,7 @@ export enum WalletConnectV2ProviderErrorMessagesEnum {
   unableToLogin = "WalletConnect is unable to login",
   unableToHandleTopic = "WalletConnect: Unable to handle topic update",
   unableToHandleEvent = "WalletConnect: Unable to handle events",
+  unableToHandleCleanup = "WalletConnect: Unable to handle cleanup",
   sessionNotConnected = "WalletConnect Session is not connected",
   sessionDeleted = "WalletConnect Session Deleted",
   sessionExpired = "WalletConnect Session Expired",

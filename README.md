@@ -45,15 +45,15 @@ First, let's see a (simple) way to build a QR dialog using [`qrcode`](https://ww
 import QRCode from "qrcode";
 
 async function openModal(connectorUri) {
-    const svg = await QRCode.toString(connectorUri, { type: "svg" });
+  const svg = await QRCode.toString(connectorUri, { type: "svg" });
 
-    // The referenced elements must be added to your page, in advance
-    $("#MyWalletConnectQRContainer").html(svg);
-    $("#MyWalletConnectModal").modal("show");
+  // The referenced elements must be added to your page, in advance
+  $("#MyWalletConnectQRContainer").html(svg);
+  $("#MyWalletConnectModal").modal("show");
 }
 
 function closeModal() {
-    $("#MyWalletConnectModal").modal("hide");
+  $("#MyWalletConnectModal").modal("hide");
 }
 ```
 
@@ -62,34 +62,39 @@ In order to create an instance of the provider, do as follows:
 ```js
 import { WalletConnectV2Provider } from "@multiversx/sdk-wallet-connect-provider";
 
-// Generate your own WalletConnect 2 ProjectId here: 
+// Generate your own WalletConnect 2 ProjectId here:
 // https://cloud.walletconnect.com/app
 const projectId = "9b1a9564f91cb6...";
 // The default WalletConnect V2 Cloud Relay
 const relayUrl = "wss://relay.walletconnect.com";
 // T for Testnet, D for Devnet and 1 for Mainnet
-const chainId = "T" 
+const chainId = "T";
 
 const callbacks = {
-    onClientLogin: async function () {
-        // closeModal() is defined above
-        closeModal();
-        const address = await provider.getAddress();
-        console.log("Address:", address);
-    },
-    onClientLogout: async function () {
-        console.log("onClientLogout()");
-    },
-    onClientEvent: async function (event) {
-        console.log("onClientEvent()", event);
-    }
+  onClientLogin: async function () {
+    // closeModal() is defined above
+    closeModal();
+    const address = await provider.getAddress();
+    console.log("Address:", address);
+  },
+  onClientLogout: async function () {
+    console.log("onClientLogout()");
+  },
+  onClientEvent: async function (event) {
+    console.log("onClientEvent()", event);
+  },
 };
 
-const provider = new WalletConnectProvider(callbacks, chainId, relayUrl, projectId);
+const provider = new WalletConnectProvider(
+  callbacks,
+  chainId,
+  relayUrl,
+  projectId
+);
 ```
 
 > You can customize the Core WalletConnect functionality by passing `WalletConnectProvider` an optional 5th parameter: `options`
-For example `metadata` and `storage` for [React Native](https://docs.walletconnect.com/2.0/javascript/guides/react-native) or `{ logger: 'debug' }` for a detailed under the hood logging
+> For example `metadata` and `storage` for [React Native](https://docs.walletconnect.com/2.0/javascript/guides/react-native) or `{ logger: 'debug' }` for a detailed under the hood logging
 
 Before performing any operation, make sure to initialize the provider:
 
@@ -103,12 +108,12 @@ Then, ask the user to login using xPortal on her phone:
 
 ```js
 const { uri, approval } = await provider.connect();
-// connect will provide the uri required for the qr code display 
-// and an approval Promise that will return the connection session 
+// connect will provide the uri required for the qr code display
+// and an approval Promise that will return the connection session
 // once the user confirms the login
 
 // openModal() is defined above
-openModal(uri);        
+openModal(uri);
 
 // pass the approval Promise
 await provider.login({ approval });
@@ -161,10 +166,59 @@ Arbitrary messages can be signed as follows:
 import { SignableMessage } from "@multiversx/sdk-core";
 
 const message = new SignableMessage({
-    message: Buffer.from("hello")
+  message: Buffer.from("hello"),
 });
 
 await provider.signMessage(message);
 
 console.log(message.toJSON());
+```
+
+## Namespaces
+
+MultiversX Namespace: `mvx`
+
+Reference: `1` for `Mainnet`, `T` for `Testnet`, `D` for `Devnet` ( same as the MultiversX chainID )
+
+### Example of a MultiversX WalletConnect Proposal Namespace
+
+```json
+{
+  "requiredNamespaces": {
+    "mvx": {
+      "chains": ["mvx:D"],
+      "methods": [
+        "mvx_signTransaction",
+        "mvx_signTransactions",
+        "mvx_signMessage",
+        "mvx_signLoginToken"
+      ],
+      "events": []
+    }
+  }
+}
+```
+
+If the wallet (or the user) does NOT approve the session, then it is rejected. Otherwise, the wallet responds with a slightly different namespace schema: Session Namespace.
+
+### Example of a MultiversX WalletConnect Session Namespace
+
+```json
+{
+  "sessionNamespaces": {
+    "mvx": {
+      "chains": ["mvx:D"],
+      "methods": [
+        "mvx_signTransaction",
+        "mvx_signTransactions",
+        "mvx_signMessage",
+        "mvx_signLoginToken"
+      ],
+      "events": [],
+      "accounts": [
+        "mvx:D:erd1p47hljmqsetgzc4yqp700z6443r655zfkkg9lfkh0tx2wzyxl8sa5jdjq"
+      ]
+    }
+  }
+}
 ```
