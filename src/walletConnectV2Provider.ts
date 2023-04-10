@@ -808,7 +808,7 @@ export class WalletConnectV2Provider {
 
     try {
       const inactivePairings =
-        this.walletConnector.core?.pairing?.pairings?.getAll();
+        this.walletConnector.core?.pairing?.pairings?.getAll({ active: false });
 
       if (!isValidArray(inactivePairings)) {
         return;
