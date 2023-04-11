@@ -11,7 +11,7 @@ import {
   WALLETCONNECT_MULTIVERSX_NAMESPACE,
   WALLETCONNECT_MULTIVERSX_METHODS,
 } from "./constants";
-import { Operation } from "./operation";
+import { Operation, OptionalOperation } from "./operation";
 import { Logger } from "./logger";
 import { Signature, Address } from "./primitives";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
@@ -181,6 +181,7 @@ export class WalletConnectV2Provider {
   async login(options?: {
     approval?: () => Promise<SessionTypes.Struct>;
     token?: string;
+    nativeAuthToken?: string;
   }): Promise<string> {
     this.isInitializing = true;
     if (typeof this.walletConnector === "undefined") {
@@ -199,16 +200,18 @@ export class WalletConnectV2Provider {
       if (options && options.approval) {
         const session = await options.approval();
 
-        if (options.token) {
+        if (options.token || options.nativeAuthToken) {
           const address = this.getAddressFromSession(session);
           const { signature }: { signature: string } =
             await this.walletConnector.request({
               chainId: `${this.namespace}:${this.chainId}`,
               topic: session.topic,
               request: {
-                method: Operation.SIGN_LOGIN_TOKEN,
+                method: options.nativeAuthToken
+                  ? OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
+                  : Operation.SIGN_LOGIN_TOKEN,
                 params: {
-                  token: options.token,
+                  token: options.nativeAuthToken ?? options.token,
                   address,
                 },
               },

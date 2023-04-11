@@ -4,3 +4,8 @@ export enum Operation {
   SIGN_MESSAGE = "mvx_signMessage",
   SIGN_LOGIN_TOKEN = "mvx_signLoginToken",
 }
+
+export enum OptionalOperation {
+  SIGN_NATIVE_AUTH_TOKEN = "mvx_signNativeAuthToken",
+  CANCEL_ACTION = "mvx_cancelAction",
+}
