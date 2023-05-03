@@ -1,7 +1,3 @@
-export interface ISignature {
-  hex(): string;
-}
-
 export interface IAddress {
   bech32(): string;
   toString(): string;
@@ -16,10 +12,13 @@ export interface ITransaction {
   getData(): ITransactionData;
   getChainID(): IChainID;
   getVersion(): ITransactionVersion;
+  getGuardian(): IAddress | null;
+  setGuardian(guardian: IAddress): void;
 
-  toPlainObject(sender?: IAddress): any;
+  toPlainObject(): any;
 
-  applySignature(signature: ISignature, signedBy: IAddress): void;
+  applySignature(signature: Buffer): void;
+  applyGuardianSignature(signature: Buffer): void;
 }
 
 export interface INonce {
@@ -52,5 +51,5 @@ export interface ITransactionVersion {
 
 export interface ISignableMessage {
   message: Buffer;
-  applySignature(signature: ISignature, signedBy: IAddress): void;
+  applySignature(signature: Buffer): void;
 }

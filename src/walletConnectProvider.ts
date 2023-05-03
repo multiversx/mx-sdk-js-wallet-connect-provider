@@ -1,9 +1,8 @@
 import WalletClient from "@walletconnect/client";
-import { ISignableMessage, ITransaction } from "./interface";
 import { WALLETCONNECT_MULTIVERSX_CHAIN_ID } from "./constants";
-import { Logger } from "./logger";
 import { ErrNotImplemented } from "./errors";
-import { Signature } from "./primitives";
+import { ISignableMessage, ITransaction } from "./interface";
+import { Logger } from "./logger";
 import { UserAddress } from "./userAddress";
 
 interface IClientConnect {
@@ -11,6 +10,9 @@ interface IClientConnect {
     onClientLogout(): void;
 }
 
+/**
+ * @deprecated Use WalletConnectV2Provider, instead.
+ */
 export class WalletConnectProvider {
     walletConnectBridge: string;
     address: string = "";
@@ -146,7 +148,7 @@ export class WalletConnectProvider {
             throw new Error("Wallet Connect could not sign the transaction");
         }
 
-        transaction.applySignature(Signature.fromHex(sig.signature), UserAddress.fromBech32(address));
+        transaction.applySignature(Buffer.from(sig.signature, "hex"));
         return transaction;
     }
 
@@ -182,7 +184,7 @@ export class WalletConnectProvider {
         }
 
         for (const [index, transaction] of transactions.entries()) {
-            transaction.applySignature(Signature.fromHex(signatures[index].signature), UserAddress.fromBech32(address))
+            transaction.applySignature(Buffer.from(signatures[index].signature, "hex"));
         }
 
         return transactions;

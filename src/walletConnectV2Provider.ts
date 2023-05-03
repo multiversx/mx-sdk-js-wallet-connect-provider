@@ -1,20 +1,16 @@
 import Client from "@walletconnect/sign-client";
 import {
-  PairingTypes,
-  SessionTypes,
-  EngineTypes,
-  SignClientTypes,
+  EngineTypes, PairingTypes,
+  SessionTypes, SignClientTypes
 } from "@walletconnect/types";
 import { getSdkError, isValidArray } from "@walletconnect/utils";
-import { ISignableMessage, ITransaction } from "./interface";
 import {
-  WALLETCONNECT_MULTIVERSX_NAMESPACE,
-  WALLETCONNECT_MULTIVERSX_METHODS,
+  WALLETCONNECT_MULTIVERSX_METHODS, WALLETCONNECT_MULTIVERSX_NAMESPACE
 } from "./constants";
-import { Operation } from "./operation";
-import { Logger } from "./logger";
-import { Signature, Address } from "./primitives";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
+import { ISignableMessage, ITransaction } from "./interface";
+import { Logger } from "./logger";
+import { Operation } from "./operation";
 import { UserAddress } from "./userAddress";
 
 interface SessionEventTypes {
@@ -372,10 +368,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      message.applySignature(
-        new Signature(signature),
-        UserAddress.fromBech32(address)
-      );
+      message.applySignature(signature);
     } catch (error) {
       Logger.error(
         WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
@@ -408,9 +401,7 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const address = await this.getAddress();
-    const sender = new Address(address);
-    const wcTransaction = transaction.toPlainObject(sender);
+    const wcTransaction = transaction.toPlainObject();
 
     if (this.chainId !== transaction.getChainID().valueOf()) {
       Logger.error(
@@ -443,10 +434,9 @@ export class WalletConnectV2Provider {
         );
       }
 
-      transaction.applySignature(
-        Signature.fromHex(signature),
-        UserAddress.fromBech32(address)
-      );
+      transaction.applySignature(Buffer.from(signature, "hex"));
+      // TODO: in future minor version, call setOptions(), setGuardian(), applyGuardianSignature(), as well (if applicable).
+
       return transaction;
     } catch (error) {
       throw new Error(
@@ -477,8 +467,6 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const address = await this.getAddress();
-    const sender = new Address(address);
     const wcTransactions = transactions.map((transaction) => {
       if (this.chainId !== transaction.getChainID().valueOf()) {
         Logger.error(
@@ -488,7 +476,7 @@ export class WalletConnectV2Provider {
           WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
         );
       }
-      return transaction.toPlainObject(sender);
+      return transaction.toPlainObject();
     });
 
     try {
@@ -517,10 +505,8 @@ export class WalletConnectV2Provider {
       }
 
       for (const [index, transaction] of transactions.entries()) {
-        transaction.applySignature(
-          Signature.fromHex(signatures[index].signature),
-          UserAddress.fromBech32(address)
-        );
+        transaction.applySignature(Buffer.from(signatures[index].signature, "hex"));
+        // TODO: in future minor version, call setOptions(), setGuardian(), applyGuardianSignature(), as well (if applicable).
       }
 
       return transactions;
