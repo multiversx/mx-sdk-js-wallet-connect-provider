@@ -15,7 +15,6 @@
   "author": "MultiversX",
   "license": "MIT",
   "dependencies": {
-    "@walletconnect/client": "1.8.0",
     "@walletconnect/sign-client": "2.7.3",
     "@walletconnect/utils": "2.7.3",
     "bech32": "1.1.4"

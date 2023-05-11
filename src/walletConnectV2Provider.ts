@@ -1,11 +1,14 @@
 import Client from "@walletconnect/sign-client";
 import {
-  EngineTypes, PairingTypes,
-  SessionTypes, SignClientTypes
+  EngineTypes,
+  PairingTypes,
+  SessionTypes,
+  SignClientTypes,
 } from "@walletconnect/types";
 import { getSdkError, isValidArray } from "@walletconnect/utils";
 import {
-  WALLETCONNECT_MULTIVERSX_METHODS, WALLETCONNECT_MULTIVERSX_NAMESPACE
+  WALLETCONNECT_MULTIVERSX_METHODS,
+  WALLETCONNECT_MULTIVERSX_NAMESPACE,
 } from "./constants";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
 import { ISignableMessage, ITransaction } from "./interface";
@@ -505,7 +508,9 @@ export class WalletConnectV2Provider {
       }
 
       for (const [index, transaction] of transactions.entries()) {
-        transaction.applySignature(Buffer.from(signatures[index].signature, "hex"));
+        transaction.applySignature(
+          Buffer.from(signatures[index].signature, "hex")
+        );
         // TODO: in future minor version, call setOptions(), setGuardian(), applyGuardianSignature(), as well (if applicable).
       }
 
