@@ -11,7 +11,7 @@ import { getSdkError, isValidArray } from "@walletconnect/utils";
 import { WALLETCONNECT_MULTIVERSX_NAMESPACE } from "./constants";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
 import { Logger } from "./logger";
-import { Operation } from "./operation";
+import { Operation, OptionalOperation } from "./operation";
 import {
   addressIsValid,
   getCurrentSession,
@@ -186,12 +186,21 @@ export class WalletConnectV2Provider {
 
         if (options.token) {
           const address = getAddressFromSession(session);
+
+          const selectedNamespace =
+            session.namespaces[WALLETCONNECT_MULTIVERSX_NAMESPACE];
+          const method = selectedNamespace.methods.includes(
+            OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
+          )
+            ? OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
+            : OptionalOperation.SIGN_LOGIN_TOKEN;
+
           const { signature }: { signature: string } =
             await this.walletConnector.request({
               chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
               topic: session.topic,
               request: {
-                method: Operation.SIGN_LOGIN_TOKEN,
+                method,
                 params: {
                   token: options.token,
                   address,
