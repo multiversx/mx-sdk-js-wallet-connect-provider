@@ -1,3 +1,6 @@
+import { Address } from "@multiversx/sdk-core/out/address";
+import { Transaction } from "@multiversx/sdk-core/out/transaction";
+import { SignableMessage } from "@multiversx/sdk-core/out/signableMessage";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
@@ -11,10 +14,8 @@ import {
   WALLETCONNECT_MULTIVERSX_NAMESPACE,
 } from "./constants";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
-import { ISignableMessage, ITransaction } from "./interface";
 import { Logger } from "./logger";
 import { Operation } from "./operation";
-import { UserAddress } from "./userAddress";
 
 interface SessionEventTypes {
   event: {
@@ -331,7 +332,7 @@ export class WalletConnectV2Provider {
    * Signs a message and returns it signed
    * @param message
    */
-  async signMessage<T extends ISignableMessage>(message: T): Promise<T> {
+  async signMessage(message: SignableMessage): Promise<SignableMessage> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -348,7 +349,7 @@ export class WalletConnectV2Provider {
     }
 
     const address = await this.getAddress();
-    const { signature }: { signature: Buffer } =
+    const { signature }: { signature: string } =
       await this.walletConnector.request({
         chainId: `${this.namespace}:${this.chainId}`,
         topic: this.getCurrentTopic(this.walletConnector),
@@ -371,7 +372,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      message.applySignature(signature);
+      message.applySignature(Buffer.from(signature, "hex"));
     } catch (error) {
       Logger.error(
         WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
@@ -388,7 +389,7 @@ export class WalletConnectV2Provider {
    * Signs a transaction and returns it signed
    * @param transaction
    */
-  async signTransaction<T extends ITransaction>(transaction: T): Promise<T> {
+  async signTransaction(transaction: Transaction): Promise<Transaction> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -404,7 +405,7 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const wcTransaction = transaction.toPlainObject();
+    const plainTransaction = transaction.toPlainObject();
 
     if (this.chainId !== transaction.getChainID().valueOf()) {
       Logger.error(
@@ -423,7 +424,7 @@ export class WalletConnectV2Provider {
           request: {
             method: Operation.SIGN_TRANSACTION,
             params: {
-              transaction: wcTransaction,
+              transaction: plainTransaction,
             },
           },
         });
@@ -452,9 +453,7 @@ export class WalletConnectV2Provider {
    * Signs an array of transactions and returns it signed
    * @param transactions
    */
-  async signTransactions<T extends ITransaction>(
-    transactions: T[]
-  ): Promise<T[]> {
+  async signTransactions(transactions: Transaction[]): Promise<Transaction[]> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -470,7 +469,7 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const wcTransactions = transactions.map((transaction) => {
+    const plainTransactions = transactions.map((transaction) => {
       if (this.chainId !== transaction.getChainID().valueOf()) {
         Logger.error(
           WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
@@ -490,7 +489,7 @@ export class WalletConnectV2Provider {
           request: {
             method: Operation.SIGN_TRANSACTIONS,
             params: {
-              transactions: wcTransactions,
+              transactions: plainTransactions,
             },
           },
         });
@@ -511,7 +510,6 @@ export class WalletConnectV2Provider {
         transaction.applySignature(
           Buffer.from(signatures[index].signature, "hex")
         );
-        // TODO: in future minor version, call setOptions(), setGuardian(), applyGuardianSignature(), as well (if applicable).
       }
 
       return transactions;
@@ -888,7 +886,7 @@ export class WalletConnectV2Provider {
 
   private addressIsValid(destinationAddress: string): boolean {
     try {
-      const addr = UserAddress.fromBech32(destinationAddress);
+      const addr = Address.fromBech32(destinationAddress);
       return !!addr;
     } catch {
       return false;
