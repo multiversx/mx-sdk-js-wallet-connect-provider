@@ -1,3 +1,4 @@
+import { IPlainTransactionObject } from "@multiversx/sdk-core/out";
 import { Transaction } from "@multiversx/sdk-core/out/transaction";
 import { SignableMessage } from "@multiversx/sdk-core/out/signableMessage";
 import Client from "@walletconnect/sign-client";
@@ -27,6 +28,13 @@ interface SessionEventTypes {
     data: any;
   };
   chainId: string;
+}
+
+interface TransactionsResponseOldType {
+  signatures: { signature: string }[];
+}
+interface TransactionsResponseType {
+  transactions: IPlainTransactionObject[];
 }
 
 interface IClientConnect {
@@ -345,38 +353,42 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const address = await this.getAddress();
-    const { signature }: { signature: string } =
-      await this.walletConnector.request({
-        chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-        topic: getCurrentTopic(this.walletConnector, this.chainId),
-        request: {
-          method: Operation.SIGN_MESSAGE,
-          params: {
-            address,
-            message: message.message.toString(),
-          },
-        },
-      });
-
-    if (!signature) {
-      Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
-      );
-      throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
-      );
-    }
-
     try {
-      message.applySignature(Buffer.from(signature, "hex"));
+      const address = await this.getAddress();
+      const { signature }: { signature: string } =
+        await this.walletConnector.request({
+          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+          topic: getCurrentTopic(this.walletConnector, this.chainId),
+          request: {
+            method: Operation.SIGN_MESSAGE,
+            params: {
+              address,
+              message: message.message.toString(),
+            },
+          },
+        });
+
+      if (!signature) {
+        Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
+        );
+        throw new Error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
+        );
+      }
+
+      try {
+        message.applySignature(Buffer.from(signature, "hex"));
+      } catch (error) {
+        Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
+        );
+        throw new Error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
+        );
+      }
     } catch (error) {
-      Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
-      );
-      throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
-      );
+      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.unableToSign);
     }
 
     return message;
@@ -414,7 +426,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const { signature }: { signature: string } =
+      const response: { signature: string } | IPlainTransactionObject =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: getCurrentTopic(this.walletConnector, this.chainId),
@@ -426,19 +438,24 @@ export class WalletConnectV2Provider {
           },
         });
 
-      if (!signature) {
+      if (!response) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
         throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
       }
 
-      transaction.applySignature(Buffer.from(signature, "hex"));
-      // TODO: in future minor version, call setOptions(), setGuardian(), applyGuardianSignature(), as well (if applicable).
-
-      return transaction;
+      const responseKeys = Object.keys(response);
+      // if on old flow and only signature is present
+      if (responseKeys.length === 1 && responseKeys[0] === "signature") {
+        const { signature } = response as { signature: string };
+        transaction.applySignature(Buffer.from(signature, "hex"));
+        return transaction;
+      } else {
+        return Transaction.fromPlainObject(response as IPlainTransactionObject);
+      }
     } catch (error) {
       throw new Error(
         WalletConnectV2ProviderErrorMessagesEnum.transactionError
@@ -479,7 +496,7 @@ export class WalletConnectV2Provider {
     });
 
     try {
-      const { signatures }: { signatures: { signature: string }[] } =
+      const response: TransactionsResponseOldType | TransactionsResponseType =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: getCurrentTopic(this.walletConnector, this.chainId),
@@ -491,25 +508,55 @@ export class WalletConnectV2Provider {
           },
         });
 
-      if (!signatures || !Array.isArray(signatures)) {
+      if (!response) {
         Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+        );
+        throw new Error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
       }
 
-      if (transactions.length !== signatures.length) {
-        Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
-        );
-      }
+      const responseKeys = Object.keys(response);
+      // if on old flow and only signatures is present
+      if (responseKeys.length === 1 && responseKeys[0] === "signatures") {
+        const { signatures } = response as TransactionsResponseOldType;
+        if (
+          !Array.isArray(signatures) ||
+          transactions.length !== signatures.length
+        ) {
+          throw new Error(
+            WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+          );
+        }
 
-      for (const [index, transaction] of transactions.entries()) {
-        transaction.applySignature(
-          Buffer.from(signatures[index].signature, "hex")
-        );
-      }
+        for (const [index, transaction] of transactions.entries()) {
+          transaction.applySignature(
+            Buffer.from(signatures[index].signature, "hex")
+          );
+        }
 
-      return transactions;
+        return transactions;
+      } else {
+        const { transactions: transactionsPlainObjectResponse } =
+          response as TransactionsResponseType;
+
+        if (
+          !Array.isArray(transactionsPlainObjectResponse) ||
+          transactions.length !== transactionsPlainObjectResponse.length
+        ) {
+          throw new Error(
+            WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+          );
+        }
+
+        const transactionsResponse = transactionsPlainObjectResponse.map(
+          (transaction: IPlainTransactionObject) =>
+            Transaction.fromPlainObject(transaction)
+        );
+
+        return transactionsResponse;
+      }
     } catch (error) {
       throw new Error(
         WalletConnectV2ProviderErrorMessagesEnum.transactionError
@@ -541,26 +588,29 @@ export class WalletConnectV2Provider {
     }
 
     if (options?.request?.method) {
-      const request = { ...options.request };
-      let { method } = request;
+      try {
+        const request = { ...options.request };
+        let { method } = request;
 
-      const { response }: { response: any } =
-        await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-          topic: getCurrentTopic(this.walletConnector, this.chainId),
-          request: { ...request, method },
-        });
+        const { response }: { response: any } =
+          await this.walletConnector.request({
+            chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+            topic: getCurrentTopic(this.walletConnector, this.chainId),
+            request: { ...request, method },
+          });
 
-      if (!response) {
+        if (!response) {
+          Logger.error(
+            WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
+          );
+        }
+      } catch (error) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
-        );
-        throw new Error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
         );
       }
 
-      return response;
+      return;
     }
   }
 
@@ -582,7 +632,6 @@ export class WalletConnectV2Provider {
 
     try {
       const topic = getCurrentTopic(this.walletConnector, this.chainId);
-
       await this.walletConnector.ping({
         topic,
       });
@@ -807,9 +856,15 @@ export class WalletConnectV2Provider {
         if (options.deletePairings) {
           this.walletConnector.core?.expirer?.set(pairing.topic, 0);
         } else {
-          await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
-            pairing.topic
-          );
+          try {
+            await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
+              pairing.topic
+            );
+          } catch (error) {
+            Logger.error(
+              WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
+            );
+          }
         }
       }
     } catch (error) {
