@@ -85,7 +85,9 @@ export class WalletConnectV2Provider {
   private reset() {
     this.address = "";
     this.signature = "";
+    this.walletConnector = undefined;
     this.session = undefined;
+    this.pairings = undefined;
   }
 
   /**
