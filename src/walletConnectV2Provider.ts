@@ -12,12 +12,14 @@ import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
 import { Logger } from "./logger";
 import { Operation, OptionalOperation } from "./operation";
 import {
+  applyTransactionSignature,
   addressIsValid,
   getCurrentSession,
   getCurrentTopic,
   getAddressFromSession,
   getConnectionParams,
   ConnectParamsTypes,
+  TransactionResponse,
 } from "./utils";
 
 interface SessionEventTypes {
@@ -26,11 +28,6 @@ interface SessionEventTypes {
     data: any;
   };
   chainId: string;
-}
-
-interface TransactionResponse {
-  signature: string;
-  guardianSignature?: string;
 }
 
 interface IClientConnect {
@@ -424,45 +421,18 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const { signature, guardianSignature }: TransactionResponse =
-        await this.walletConnector.request({
-          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-          topic: getCurrentTopic(this.walletConnector, this.chainId),
-          request: {
-            method: Operation.SIGN_TRANSACTION,
-            params: {
-              transaction: plainTransaction,
-            },
+      const response: TransactionResponse = await this.walletConnector.request({
+        chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+        topic: getCurrentTopic(this.walletConnector, this.chainId),
+        request: {
+          method: Operation.SIGN_TRANSACTION,
+          params: {
+            transaction: plainTransaction,
           },
-        });
+        },
+      });
 
-      if (!signature) {
-        Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
-        );
-        throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
-        );
-      }
-
-      if (transaction.getGuardian().bech32() && !guardianSignature) {
-        Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
-        );
-        throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
-        );
-      }
-
-      transaction.applySignature(Buffer.from(signature, "hex"));
-
-      if (guardianSignature) {
-        transaction.applyGuardianSignature(
-          Buffer.from(guardianSignature, "hex")
-        );
-      }
-
-      return transaction;
+      return applyTransactionSignature({ transaction, response });
     } catch (error) {
       throw new Error(
         WalletConnectV2ProviderErrorMessagesEnum.transactionError
@@ -534,28 +504,8 @@ export class WalletConnectV2Provider {
       }
 
       for (const [index, transaction] of transactions.entries()) {
-        const signedTransaction = signatures[index];
-
-        if (
-          transaction.getGuardian().bech32() &&
-          !signedTransaction.guardianSignature
-        ) {
-          Logger.error(
-            WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
-          );
-          throw new Error(
-            WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
-          );
-        }
-
-        transaction.applySignature(
-          Buffer.from(signedTransaction.signature, "hex")
-        );
-        if (signedTransaction.guardianSignature) {
-          transaction.applyGuardianSignature(
-            Buffer.from(signedTransaction.guardianSignature, "hex")
-          );
-        }
+        const response = signatures[index];
+        applyTransactionSignature({ transaction, response });
       }
 
       return transactions;

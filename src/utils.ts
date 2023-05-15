@@ -1,4 +1,5 @@
-import { Address } from "@multiversx/sdk-core";
+import { Address, Transaction } from "@multiversx/sdk-core";
+
 import Client from "@walletconnect/sign-client";
 import { EngineTypes, SessionTypes } from "@walletconnect/types";
 
@@ -14,6 +15,13 @@ export interface ConnectParamsTypes {
   topic?: string;
   events?: SessionTypes.Namespace["events"];
   methods?: string[];
+}
+
+export interface TransactionResponse {
+  signature: string;
+  guardianSignature?: string;
+  options?: number;
+  version?: number;
 }
 
 export function getCurrentSession(
@@ -108,4 +116,48 @@ export function getAddressFromSession(session: SessionTypes.Struct): string {
   }
 
   return "";
+}
+
+export function applyTransactionSignature({
+  transaction,
+  response,
+}: {
+  transaction: Transaction;
+  response: TransactionResponse;
+}): Transaction {
+  if (!response) {
+    Logger.error(
+      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+    );
+    throw new Error(
+      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+    );
+  }
+
+  const { signature, guardianSignature, version, options } = response;
+
+  if (transaction.getGuardian().bech32() && !guardianSignature) {
+    Logger.error(
+      WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
+    );
+    throw new Error(
+      WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
+    );
+  }
+
+  transaction.applySignature(Buffer.from(signature, "hex"));
+
+  if (guardianSignature) {
+    transaction.applyGuardianSignature(Buffer.from(guardianSignature, "hex"));
+  }
+
+  if (version !== undefined) {
+    transaction.setVersion(version);
+  }
+
+  if (options !== undefined) {
+    transaction.setOptions(options);
+  }
+
+  return transaction;
 }
