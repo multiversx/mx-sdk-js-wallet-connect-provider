@@ -1,4 +1,4 @@
-import { Address } from "@multiversx/sdk-core/out/address";
+import { Address } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import { EngineTypes, SessionTypes } from "@walletconnect/types";
 
@@ -33,17 +33,17 @@ export function getCurrentSession(
     const session = acknowledgedSessions[lastKeyIndex];
 
     return session;
-  } else if (client.session.length > 0) {
+  }
+
+  if (client.session.length > 0) {
     const lastKeyIndex = client.session.keys.length - 1;
     const session = client.session.get(client.session.keys[lastKeyIndex]);
 
     return session;
-  } else {
-    Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected);
-    throw new Error(
-      WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
-    );
   }
+
+  Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected);
+  throw new Error(WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected);
 }
 
 export function getCurrentTopic(

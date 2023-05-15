@@ -56,4 +56,5 @@ export enum WalletConnectV2ProviderErrorMessagesEnum {
   invalidCustomRequestResponse = "WalletConnect could not send the custom request",
   transactionError = "Transaction canceled",
   connectionError = "WalletConnect could not establish a connection",
+  missingGuardianSignature = "Missing Guardian Signature",
 }

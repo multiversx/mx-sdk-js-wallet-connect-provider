@@ -1,6 +1,4 @@
-import { IPlainTransactionObject } from "@multiversx/sdk-core/out";
-import { Transaction } from "@multiversx/sdk-core/out/transaction";
-import { SignableMessage } from "@multiversx/sdk-core/out/signableMessage";
+import { SignableMessage, Transaction } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
@@ -30,11 +28,9 @@ interface SessionEventTypes {
   chainId: string;
 }
 
-interface TransactionsResponseOldType {
-  signatures: { signature: string }[];
-}
-interface TransactionsResponseType {
-  transactions: IPlainTransactionObject[];
+interface TransactionResponse {
+  signature: string;
+  guardianSignature?: string;
 }
 
 interface IClientConnect {
@@ -428,7 +424,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const response: { signature: string } | IPlainTransactionObject =
+      const { signature, guardianSignature }: TransactionResponse =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: getCurrentTopic(this.walletConnector, this.chainId),
@@ -440,7 +436,7 @@ export class WalletConnectV2Provider {
           },
         });
 
-      if (!response) {
+      if (!signature) {
         Logger.error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
@@ -449,15 +445,24 @@ export class WalletConnectV2Provider {
         );
       }
 
-      const responseKeys = Object.keys(response);
-      // if on old flow and only signature is present
-      if (responseKeys.length === 1 && responseKeys[0] === "signature") {
-        const { signature } = response as { signature: string };
-        transaction.applySignature(Buffer.from(signature, "hex"));
-        return transaction;
-      } else {
-        return Transaction.fromPlainObject(response as IPlainTransactionObject);
+      if (transaction.getGuardian().bech32() && !guardianSignature) {
+        Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
+        );
+        throw new Error(
+          WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
+        );
       }
+
+      transaction.applySignature(Buffer.from(signature, "hex"));
+
+      if (guardianSignature) {
+        transaction.applyGuardianSignature(
+          Buffer.from(guardianSignature, "hex")
+        );
+      }
+
+      return transaction;
     } catch (error) {
       throw new Error(
         WalletConnectV2ProviderErrorMessagesEnum.transactionError
@@ -498,7 +503,7 @@ export class WalletConnectV2Provider {
     });
 
     try {
-      const response: TransactionsResponseOldType | TransactionsResponseType =
+      const { signatures }: { signatures: TransactionResponse[] } =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
           topic: getCurrentTopic(this.walletConnector, this.chainId),
@@ -510,7 +515,7 @@ export class WalletConnectV2Provider {
           },
         });
 
-      if (!response) {
+      if (!signatures) {
         Logger.error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
@@ -519,46 +524,41 @@ export class WalletConnectV2Provider {
         );
       }
 
-      const responseKeys = Object.keys(response);
-      // if on old flow and only signatures is present
-      if (responseKeys.length === 1 && responseKeys[0] === "signatures") {
-        const { signatures } = response as TransactionsResponseOldType;
-        if (
-          !Array.isArray(signatures) ||
-          transactions.length !== signatures.length
-        ) {
-          throw new Error(
-            WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
-          );
-        }
-
-        for (const [index, transaction] of transactions.entries()) {
-          transaction.applySignature(
-            Buffer.from(signatures[index].signature, "hex")
-          );
-        }
-
-        return transactions;
-      } else {
-        const { transactions: transactionsPlainObjectResponse } =
-          response as TransactionsResponseType;
-
-        if (
-          !Array.isArray(transactionsPlainObjectResponse) ||
-          transactions.length !== transactionsPlainObjectResponse.length
-        ) {
-          throw new Error(
-            WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
-          );
-        }
-
-        const transactionsResponse = transactionsPlainObjectResponse.map(
-          (transaction: IPlainTransactionObject) =>
-            Transaction.fromPlainObject(transaction)
+      if (
+        !Array.isArray(signatures) ||
+        transactions.length !== signatures.length
+      ) {
+        throw new Error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
-
-        return transactionsResponse;
       }
+
+      for (const [index, transaction] of transactions.entries()) {
+        const signedTransaction = signatures[index];
+
+        if (
+          transaction.getGuardian().bech32() &&
+          !signedTransaction.guardianSignature
+        ) {
+          Logger.error(
+            WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
+          );
+          throw new Error(
+            WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
+          );
+        }
+
+        transaction.applySignature(
+          Buffer.from(signedTransaction.signature, "hex")
+        );
+        if (signedTransaction.guardianSignature) {
+          transaction.applyGuardianSignature(
+            Buffer.from(signedTransaction.guardianSignature, "hex")
+          );
+        }
+      }
+
+      return transactions;
     } catch (error) {
       throw new Error(
         WalletConnectV2ProviderErrorMessagesEnum.transactionError
