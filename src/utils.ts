@@ -1,4 +1,5 @@
 import { Address, Transaction } from "@multiversx/sdk-core";
+import { Signature } from "@multiversx/sdk-core/out/signature";
 
 import Client from "@walletconnect/sign-client";
 import { EngineTypes, SessionTypes } from "@walletconnect/types";
@@ -19,9 +20,11 @@ export interface ConnectParamsTypes {
 
 export interface TransactionResponse {
   signature: string;
+  guardian?: string;
   guardianSignature?: string;
   options?: number;
   version?: number;
+  gasLimit?: number;
 }
 
 export function getCurrentSession(
@@ -134,21 +137,24 @@ export function applyTransactionSignature({
     );
   }
 
-  const { signature, guardianSignature, version, options } = response;
+  const { signature, guardianSignature, version, options, guardian, gasLimit } =
+    response;
+  const transactionGuardian = transaction.getGuardian().bech32();
 
-  if (transaction.getGuardian().bech32() && !guardianSignature) {
-    Logger.error(
-      WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
-    );
-    throw new Error(
-      WalletConnectV2ProviderErrorMessagesEnum.missingGuardianSignature
-    );
+  if (transactionGuardian && transactionGuardian !== guardian) {
+    Logger.error(WalletConnectV2ProviderErrorMessagesEnum.invalidGuardian);
+    throw new Error(WalletConnectV2ProviderErrorMessagesEnum.invalidGuardian);
   }
 
-  transaction.applySignature(Buffer.from(signature, "hex"));
+  console.log("----WalletConnect Initial Tx: ", transaction.toPlainObject());
+  console.log("----WalletConnect Response: ", response);
 
-  if (guardianSignature) {
-    transaction.applyGuardianSignature(Buffer.from(guardianSignature, "hex"));
+  if (guardian) {
+    transaction.setGuardian(Address.fromBech32(guardian));
+  }
+
+  if (gasLimit !== undefined) {
+    transaction.setGasLimit(gasLimit);
   }
 
   if (version !== undefined) {
@@ -158,6 +164,14 @@ export function applyTransactionSignature({
   if (options !== undefined) {
     transaction.setOptions(options);
   }
+
+  transaction.applySignature(new Signature(signature));
+
+  if (guardianSignature) {
+    transaction.applyGuardianSignature(new Signature(guardianSignature));
+  }
+
+  console.log("----WalletConnect Signed Tx: ", transaction.toPlainObject());
 
   return transaction;
 }

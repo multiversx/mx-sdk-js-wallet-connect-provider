@@ -1,4 +1,5 @@
 import { SignableMessage, Transaction } from "@multiversx/sdk-core";
+import { Signature } from "@multiversx/sdk-core/out/signature";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
@@ -373,7 +374,7 @@ export class WalletConnectV2Provider {
       }
 
       try {
-        message.applySignature(Buffer.from(signature, "hex"));
+        message.applySignature(new Signature(signature));
       } catch (error) {
         Logger.error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
