@@ -24,6 +24,7 @@ export interface TransactionResponse {
   guardianSignature?: string;
   options?: number;
   version?: number;
+  gasLimit?: number;
 }
 
 export function getCurrentSession(
@@ -136,7 +137,8 @@ export function applyTransactionSignature({
     );
   }
 
-  const { signature, guardianSignature, version, options, guardian } = response;
+  const { signature, guardianSignature, version, options, guardian, gasLimit } =
+    response;
   const transactionGuardian = transaction.getGuardian().bech32();
 
   if (transactionGuardian && transactionGuardian !== guardian) {
@@ -144,8 +146,15 @@ export function applyTransactionSignature({
     throw new Error(WalletConnectV2ProviderErrorMessagesEnum.invalidGuardian);
   }
 
+  console.log("----WalletConnect Initial Tx: ", transaction.toPlainObject());
+  console.log("----WalletConnect Response: ", response);
+
   if (guardian) {
     transaction.setGuardian(Address.fromBech32(guardian));
+  }
+
+  if (gasLimit !== undefined) {
+    transaction.setGasLimit(gasLimit);
   }
 
   if (version !== undefined) {
@@ -161,6 +170,8 @@ export function applyTransactionSignature({
   if (guardianSignature) {
     transaction.applyGuardianSignature(new Signature(guardianSignature));
   }
+
+  console.log("----WalletConnect Signed Tx: ", transaction.toPlainObject());
 
   return transaction;
 }
