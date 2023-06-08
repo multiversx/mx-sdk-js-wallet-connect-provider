@@ -8,9 +8,9 @@ import {
   WALLETCONNECT_MULTIVERSX_METHODS,
   WALLETCONNECT_MULTIVERSX_NAMESPACE,
 } from "./constants";
-
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
 import { Logger } from "./logger";
+import { OptionalOperation } from "./operation";
 
 export interface ConnectParamsTypes {
   topic?: string;
@@ -24,7 +24,6 @@ export interface TransactionResponse {
   guardianSignature?: string;
   options?: number;
   version?: number;
-  gasLimit?: number;
 }
 
 export function getCurrentSession(
@@ -81,7 +80,7 @@ export function getConnectionParams(
 ): EngineTypes.FindParams {
   const methods = [
     ...WALLETCONNECT_MULTIVERSX_METHODS,
-    ...(options?.methods ?? []),
+    ...(options?.methods ?? [OptionalOperation.SIGN_LOGIN_TOKEN]),
   ];
   const chains = [`${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${chainId}`];
   const events = options?.events ?? [];
@@ -137,8 +136,7 @@ export function applyTransactionSignature({
     );
   }
 
-  const { signature, guardianSignature, version, options, guardian, gasLimit } =
-    response;
+  const { signature, guardianSignature, version, options, guardian } = response;
   const transactionGuardian = transaction.getGuardian().bech32();
 
   if (transactionGuardian && transactionGuardian !== guardian) {
@@ -146,15 +144,8 @@ export function applyTransactionSignature({
     throw new Error(WalletConnectV2ProviderErrorMessagesEnum.invalidGuardian);
   }
 
-  console.log("----WalletConnect Initial Tx: ", transaction.toPlainObject());
-  console.log("----WalletConnect Response: ", response);
-
   if (guardian) {
     transaction.setGuardian(Address.fromBech32(guardian));
-  }
-
-  if (gasLimit !== undefined) {
-    transaction.setGasLimit(gasLimit);
   }
 
   if (version !== undefined) {
@@ -170,8 +161,6 @@ export function applyTransactionSignature({
   if (guardianSignature) {
     transaction.applyGuardianSignature(new Signature(guardianSignature));
   }
-
-  console.log("----WalletConnect Signed Tx: ", transaction.toPlainObject());
 
   return transaction;
 }
