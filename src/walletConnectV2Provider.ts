@@ -19,6 +19,7 @@ import {
   getCurrentTopic,
   getAddressFromSession,
   getConnectionParams,
+  getMetadata,
   ConnectParamsTypes,
   TransactionResponse,
 } from "./utils";
@@ -57,8 +58,7 @@ export class WalletConnectV2Provider {
   session: SessionTypes.Struct | undefined;
   pairings: PairingTypes.Struct[] | undefined;
   processingTopic: string = "";
-  options: Omit<SignClientTypes.Options, "relayUrl" | "projectId"> | undefined =
-    {};
+  options: SignClientTypes.Options | undefined = {};
 
   private onClientConnect: IClientConnect;
 
@@ -67,7 +67,7 @@ export class WalletConnectV2Provider {
     chainId: string,
     walletConnectV2Relay: string,
     walletConnectV2ProjectId: string,
-    options?: Omit<SignClientTypes.Options, "relayUrl" | "projectId">
+    options?: SignClientTypes.Options
   ) {
     this.onClientConnect = onClientConnect;
     this.chainId = chainId;
@@ -95,10 +95,17 @@ export class WalletConnectV2Provider {
         if (!this.isInitializing) {
           this.isInitializing = true;
           this.reset();
+          const metadata = this.options?.metadata
+            ? {
+                metadata: getMetadata(this.options?.metadata),
+              }
+            : {};
+
           const client = await Client.init({
+            ...this.options,
             relayUrl: this.walletConnectV2Relay,
             projectId: this.walletConnectV2ProjectId,
-            ...this.options,
+            ...metadata,
           });
 
           this.walletConnector = client;

@@ -1,8 +1,12 @@
 import { Address, Transaction } from "@multiversx/sdk-core";
 import { Signature } from "@multiversx/sdk-core/out/signature";
-
 import Client from "@walletconnect/sign-client";
-import { EngineTypes, SessionTypes } from "@walletconnect/types";
+import { getAppMetadata } from "@walletconnect/utils";
+import {
+  EngineTypes,
+  SessionTypes,
+  SignClientTypes,
+} from "@walletconnect/types";
 
 import {
   WALLETCONNECT_MULTIVERSX_METHODS,
@@ -163,4 +167,12 @@ export function applyTransactionSignature({
   }
 
   return transaction;
+}
+
+export function getMetadata(metadata?: SignClientTypes.Options["metadata"]) {
+  if (metadata) {
+    return { ...metadata, url: getAppMetadata().url };
+  }
+
+  return;
 }
