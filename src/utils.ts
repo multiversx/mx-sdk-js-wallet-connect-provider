@@ -102,8 +102,8 @@ export function getConnectionParams(
 
 export function addressIsValid(destinationAddress: string): boolean {
   try {
-    const addr = Address.fromBech32(destinationAddress);
-    return !addr.isEmpty();
+    const address = Address.fromBech32(destinationAddress);
+    return !address.isEmpty();
   } catch {
     return false;
   }
