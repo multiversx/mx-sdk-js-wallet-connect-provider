@@ -152,11 +152,11 @@ export function applyTransactionSignature({
     transaction.setGuardian(Address.fromBech32(guardian));
   }
 
-  if (version !== undefined) {
+  if (version) {
     transaction.setVersion(version);
   }
 
-  if (options !== undefined) {
+  if (options != null) {
     transaction.setOptions(options);
   }
 
