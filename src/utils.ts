@@ -31,10 +31,10 @@ export interface TransactionResponse {
 }
 
 export function getCurrentSession(
-  client: Client,
-  chainId: string
+  chainId: string,
+  client?: Client
 ): SessionTypes.Struct {
-  if (typeof client === "undefined") {
+  if (!client) {
     throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
   }
 
@@ -61,21 +61,21 @@ export function getCurrentSession(
 }
 
 export function getCurrentTopic(
-  client: Client,
-  chainId: string
+  chainId: string,
+  client?: Client
 ): SessionTypes.Struct["topic"] {
-  if (typeof client === "undefined") {
+  if (!client) {
     throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
   }
 
-  const session = getCurrentSession(client, chainId);
-  if (session?.topic) {
-    return session.topic;
-  } else {
+  const session = getCurrentSession(chainId, client);
+  if (!session?.topic) {
     throw new Error(
       WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
     );
   }
+
+  return session.topic;
 }
 
 export function getConnectionParams(

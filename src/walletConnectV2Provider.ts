@@ -262,7 +262,7 @@ export class WalletConnectV2Provider {
     try {
       if (
         this.processingTopic ===
-        (options?.topic || getCurrentTopic(this.walletConnector, this.chainId))
+        (options?.topic || getCurrentTopic(this.chainId, this.walletConnector))
       ) {
         return true;
       }
@@ -275,8 +275,8 @@ export class WalletConnectV2Provider {
         });
       } else {
         const currentSessionTopic = getCurrentTopic(
-          this.walletConnector,
-          this.chainId
+          this.chainId,
+          this.walletConnector
         );
         this.processingTopic = currentSessionTopic;
         await this.walletConnector.disconnect({
@@ -361,7 +361,7 @@ export class WalletConnectV2Provider {
       const { signature }: { signature: string } =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-          topic: getCurrentTopic(this.walletConnector, this.chainId),
+          topic: getCurrentTopic(this.chainId, this.walletConnector),
           request: {
             method: Operation.SIGN_MESSAGE,
             params: {
@@ -431,7 +431,7 @@ export class WalletConnectV2Provider {
     try {
       const response: TransactionResponse = await this.walletConnector.request({
         chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-        topic: getCurrentTopic(this.walletConnector, this.chainId),
+        topic: getCurrentTopic(this.chainId, this.walletConnector),
         request: {
           method: Operation.SIGN_TRANSACTION,
           params: {
@@ -484,7 +484,7 @@ export class WalletConnectV2Provider {
       const { signatures }: { signatures: TransactionResponse[] } =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-          topic: getCurrentTopic(this.walletConnector, this.chainId),
+          topic: getCurrentTopic(this.chainId, this.walletConnector),
           request: {
             method: Operation.SIGN_TRANSACTIONS,
             params: {
@@ -555,7 +555,7 @@ export class WalletConnectV2Provider {
         const { response }: { response: any } =
           await this.walletConnector.request({
             chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-            topic: getCurrentTopic(this.walletConnector, this.chainId),
+            topic: getCurrentTopic(this.chainId, this.walletConnector),
             request: { ...request, method },
           });
 
@@ -591,7 +591,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const topic = getCurrentTopic(this.walletConnector, this.chainId);
+      const topic = getCurrentTopic(this.chainId, this.walletConnector);
       await this.walletConnector.ping({
         topic,
       });
@@ -701,7 +701,7 @@ export class WalletConnectV2Provider {
     const { event } = params;
     if (
       event?.name &&
-      getCurrentTopic(this.walletConnector, this.chainId) === topic
+      getCurrentTopic(this.chainId, this.walletConnector) === topic
     ) {
       const eventData = event.data;
 
@@ -786,7 +786,7 @@ export class WalletConnectV2Provider {
 
     // Populates existing session to state (assume only the top one)
     if (client.session.length && !this.address && !this.isInitializing) {
-      const session = getCurrentSession(client, this.chainId);
+      const session = getCurrentSession(this.chainId, client);
       if (session) {
         await this.onSessionConnected({ session });
 
