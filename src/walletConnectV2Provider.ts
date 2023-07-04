@@ -1,21 +1,28 @@
+import { SignableMessage, Transaction } from "@multiversx/sdk-core";
+import { Signature } from "@multiversx/sdk-core/out/signature";
 import Client from "@walletconnect/sign-client";
 import {
+  EngineTypes,
   PairingTypes,
   SessionTypes,
-  EngineTypes,
   SignClientTypes,
 } from "@walletconnect/types";
 import { getSdkError, isValidArray } from "@walletconnect/utils";
-import { ISignableMessage, ITransaction } from "./interface";
-import {
-  WALLETCONNECT_MULTIVERSX_NAMESPACE,
-  WALLETCONNECT_MULTIVERSX_METHODS,
-} from "./constants";
-import { Operation } from "./operation";
-import { Logger } from "./logger";
-import { Signature, Address } from "./primitives";
+import { WALLETCONNECT_MULTIVERSX_NAMESPACE } from "./constants";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
-import { UserAddress } from "./userAddress";
+import { Logger } from "./logger";
+import { Operation, OptionalOperation } from "./operation";
+import {
+  applyTransactionSignature,
+  addressIsValid,
+  getCurrentSession,
+  getCurrentTopic,
+  getAddressFromSession,
+  getConnectionParams,
+  getMetadata,
+  ConnectParamsTypes,
+  TransactionResponse,
+} from "./utils";
 
 interface SessionEventTypes {
   event: {
@@ -23,12 +30,6 @@ interface SessionEventTypes {
     data: any;
   };
   chainId: string;
-}
-
-interface ConnectParamsTypes {
-  topic?: string;
-  events?: SessionTypes.Namespace["events"];
-  methods?: string[];
 }
 
 interface IClientConnect {
@@ -52,16 +53,12 @@ export class WalletConnectV2Provider {
   chainId: string = "";
   address: string = "";
   signature: string = "";
-  namespace: string = WALLETCONNECT_MULTIVERSX_NAMESPACE;
   isInitializing: boolean = false;
   walletConnector: Client | undefined;
   session: SessionTypes.Struct | undefined;
   pairings: PairingTypes.Struct[] | undefined;
-  events: SessionTypes.Namespace["events"] = [];
-  methods: string[] = [];
   processingTopic: string = "";
-  options: Omit<SignClientTypes.Options, "relayUrl" | "projectId"> | undefined =
-    {};
+  options: SignClientTypes.Options | undefined = {};
 
   private onClientConnect: IClientConnect;
 
@@ -70,7 +67,7 @@ export class WalletConnectV2Provider {
     chainId: string,
     walletConnectV2Relay: string,
     walletConnectV2ProjectId: string,
-    options?: Omit<SignClientTypes.Options, "relayUrl" | "projectId">
+    options?: SignClientTypes.Options
   ) {
     this.onClientConnect = onClientConnect;
     this.chainId = chainId;
@@ -79,11 +76,12 @@ export class WalletConnectV2Provider {
     this.options = options;
   }
 
-  reset() {
+  private reset() {
     this.address = "";
     this.signature = "";
-    this.namespace = WALLETCONNECT_MULTIVERSX_NAMESPACE;
+    this.walletConnector = undefined;
     this.session = undefined;
+    this.pairings = undefined;
   }
 
   /**
@@ -97,10 +95,17 @@ export class WalletConnectV2Provider {
         if (!this.isInitializing) {
           this.isInitializing = true;
           this.reset();
+          const metadata = this.options?.metadata
+            ? {
+                metadata: getMetadata(this.options?.metadata),
+              }
+            : {};
+
           const client = await Client.init({
+            ...this.options,
             relayUrl: this.walletConnectV2Relay,
             projectId: this.walletConnectV2ProjectId,
-            ...this.options,
+            ...metadata,
           });
 
           this.walletConnector = client;
@@ -144,22 +149,13 @@ export class WalletConnectV2Provider {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    const connectParams = this.getConnectionParams(options);
+    const connectParams = getConnectionParams(this.chainId, options);
 
     try {
       const response = await this.walletConnector.connect({
         pairingTopic: options?.topic,
         ...connectParams,
       });
-      this.events =
-        connectParams?.requiredNamespaces?.[
-          WALLETCONNECT_MULTIVERSX_NAMESPACE
-        ]?.events;
-
-      this.methods =
-        connectParams?.requiredNamespaces?.[
-          WALLETCONNECT_MULTIVERSX_NAMESPACE
-        ]?.methods;
 
       return response;
     } catch (error) {
@@ -200,13 +196,22 @@ export class WalletConnectV2Provider {
         const session = await options.approval();
 
         if (options.token) {
-          const address = this.getAddressFromSession(session);
+          const address = getAddressFromSession(session);
+
+          const selectedNamespace =
+            session.namespaces[WALLETCONNECT_MULTIVERSX_NAMESPACE];
+          const method = selectedNamespace.methods.includes(
+            OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
+          )
+            ? OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
+            : OptionalOperation.SIGN_LOGIN_TOKEN;
+
           const { signature }: { signature: string } =
             await this.walletConnector.request({
-              chainId: `${this.namespace}:${this.chainId}`,
+              chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
               topic: session.topic,
               request: {
-                method: Operation.SIGN_LOGIN_TOKEN,
+                method,
                 params: {
                   token: options.token,
                   address,
@@ -257,7 +262,7 @@ export class WalletConnectV2Provider {
     try {
       if (
         this.processingTopic ===
-        (options?.topic || this.getCurrentTopic(this.walletConnector))
+        (options?.topic || getCurrentTopic(this.chainId, this.walletConnector))
       ) {
         return true;
       }
@@ -269,7 +274,10 @@ export class WalletConnectV2Provider {
           reason: getSdkError("USER_DISCONNECTED"),
         });
       } else {
-        const currentSessionTopic = this.getCurrentTopic(this.walletConnector);
+        const currentSessionTopic = getCurrentTopic(
+          this.chainId,
+          this.walletConnector
+        );
         this.processingTopic = currentSessionTopic;
         await this.walletConnector.disconnect({
           topic: currentSessionTopic,
@@ -332,7 +340,7 @@ export class WalletConnectV2Provider {
    * Signs a message and returns it signed
    * @param message
    */
-  async signMessage<T extends ISignableMessage>(message: T): Promise<T> {
+  async signMessage(message: SignableMessage): Promise<SignableMessage> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -348,41 +356,42 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const address = await this.getAddress();
-    const { signature }: { signature: Buffer } =
-      await this.walletConnector.request({
-        chainId: `${this.namespace}:${this.chainId}`,
-        topic: this.getCurrentTopic(this.walletConnector),
-        request: {
-          method: Operation.SIGN_MESSAGE,
-          params: {
-            address,
-            message: message.message.toString(),
-          },
-        },
-      });
-
-    if (!signature) {
-      Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
-      );
-      throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
-      );
-    }
-
     try {
-      message.applySignature(
-        new Signature(signature),
-        UserAddress.fromBech32(address)
-      );
+      const address = await this.getAddress();
+      const { signature }: { signature: string } =
+        await this.walletConnector.request({
+          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+          topic: getCurrentTopic(this.chainId, this.walletConnector),
+          request: {
+            method: Operation.SIGN_MESSAGE,
+            params: {
+              address,
+              message: message.message.toString(),
+            },
+          },
+        });
+
+      if (!signature) {
+        Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
+        );
+        throw new Error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
+        );
+      }
+
+      try {
+        message.applySignature(new Signature(signature));
+      } catch (error) {
+        Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
+        );
+        throw new Error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
+        );
+      }
     } catch (error) {
-      Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
-      );
-      throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
-      );
+      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.unableToSign);
     }
 
     return message;
@@ -392,7 +401,7 @@ export class WalletConnectV2Provider {
    * Signs a transaction and returns it signed
    * @param transaction
    */
-  async signTransaction<T extends ITransaction>(transaction: T): Promise<T> {
+  async signTransaction(transaction: Transaction): Promise<Transaction> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -408,9 +417,7 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const address = await this.getAddress();
-    const sender = new Address(address);
-    const wcTransaction = transaction.toPlainObject(sender);
+    const plainTransaction = transaction.toPlainObject();
 
     if (this.chainId !== transaction.getChainID().valueOf()) {
       Logger.error(
@@ -422,32 +429,18 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const { signature }: { signature: string } =
-        await this.walletConnector.request({
-          chainId: `${this.namespace}:${this.chainId}`,
-          topic: this.getCurrentTopic(this.walletConnector),
-          request: {
-            method: Operation.SIGN_TRANSACTION,
-            params: {
-              transaction: wcTransaction,
-            },
+      const response: TransactionResponse = await this.walletConnector.request({
+        chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+        topic: getCurrentTopic(this.chainId, this.walletConnector),
+        request: {
+          method: Operation.SIGN_TRANSACTION,
+          params: {
+            transaction: plainTransaction,
           },
-        });
+        },
+      });
 
-      if (!signature) {
-        Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
-        );
-        throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
-        );
-      }
-
-      transaction.applySignature(
-        Signature.fromHex(signature),
-        UserAddress.fromBech32(address)
-      );
-      return transaction;
+      return applyTransactionSignature({ transaction, response });
     } catch (error) {
       throw new Error(
         WalletConnectV2ProviderErrorMessagesEnum.transactionError
@@ -459,9 +452,7 @@ export class WalletConnectV2Provider {
    * Signs an array of transactions and returns it signed
    * @param transactions
    */
-  async signTransactions<T extends ITransaction>(
-    transactions: T[]
-  ): Promise<T[]> {
+  async signTransactions(transactions: Transaction[]): Promise<Transaction[]> {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -477,9 +468,7 @@ export class WalletConnectV2Provider {
       );
     }
 
-    const address = await this.getAddress();
-    const sender = new Address(address);
-    const wcTransactions = transactions.map((transaction) => {
+    const plainTransactions = transactions.map((transaction) => {
       if (this.chainId !== transaction.getChainID().valueOf()) {
         Logger.error(
           WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
@@ -488,39 +477,43 @@ export class WalletConnectV2Provider {
           WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
         );
       }
-      return transaction.toPlainObject(sender);
+      return transaction.toPlainObject();
     });
 
     try {
-      const { signatures }: { signatures: { signature: string }[] } =
+      const { signatures }: { signatures: TransactionResponse[] } =
         await this.walletConnector.request({
-          chainId: `${this.namespace}:${this.chainId}`,
-          topic: this.getCurrentTopic(this.walletConnector),
+          chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+          topic: getCurrentTopic(this.chainId, this.walletConnector),
           request: {
             method: Operation.SIGN_TRANSACTIONS,
             params: {
-              transactions: wcTransactions,
+              transactions: plainTransactions,
             },
           },
         });
 
-      if (!signatures || !Array.isArray(signatures)) {
+      if (!signatures) {
         Logger.error(
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+        );
+        throw new Error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
       }
 
-      if (transactions.length !== signatures.length) {
-        Logger.error(
+      if (
+        !Array.isArray(signatures) ||
+        transactions.length !== signatures.length
+      ) {
+        throw new Error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
         );
       }
 
       for (const [index, transaction] of transactions.entries()) {
-        transaction.applySignature(
-          Signature.fromHex(signatures[index].signature),
-          UserAddress.fromBech32(address)
-        );
+        const response = signatures[index];
+        applyTransactionSignature({ transaction, response });
       }
 
       return transactions;
@@ -555,26 +548,29 @@ export class WalletConnectV2Provider {
     }
 
     if (options?.request?.method) {
-      const request = { ...options.request };
-      let { method } = request;
+      try {
+        const request = { ...options.request };
+        let { method } = request;
 
-      const { response }: { response: any } =
-        await this.walletConnector.request({
-          chainId: `${this.namespace}:${this.chainId}`,
-          topic: this.getCurrentTopic(this.walletConnector),
-          request: { ...request, method },
-        });
+        const { response }: { response: any } =
+          await this.walletConnector.request({
+            chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+            topic: getCurrentTopic(this.chainId, this.walletConnector),
+            request: { ...request, method },
+          });
 
-      if (!response) {
+        if (!response) {
+          Logger.error(
+            WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
+          );
+        }
+      } catch (error) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
-        );
-        throw new Error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
         );
       }
 
-      return response;
+      return;
     }
   }
 
@@ -595,8 +591,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const topic = this.getCurrentTopic(this.walletConnector);
-
+      const topic = getCurrentTopic(this.chainId, this.walletConnector);
       await this.walletConnector.ping({
         topic,
       });
@@ -615,7 +610,7 @@ export class WalletConnectV2Provider {
       return "";
     }
 
-    if (this.addressIsValid(options.address)) {
+    if (addressIsValid(options.address)) {
       this.address = options.address;
       if (options.signature) {
         this.signature = options.signature;
@@ -645,7 +640,7 @@ export class WalletConnectV2Provider {
 
     this.session = options.session;
 
-    const address = this.getAddressFromSession(options.session);
+    const address = getAddressFromSession(options.session);
 
     if (address) {
       await this.loginAccount({ address, signature: options.signature });
@@ -704,7 +699,10 @@ export class WalletConnectV2Provider {
     }
 
     const { event } = params;
-    if (event?.name && this.getCurrentTopic(this.walletConnector) === topic) {
+    if (
+      event?.name &&
+      getCurrentTopic(this.chainId, this.walletConnector) === topic
+    ) {
       const eventData = event.data;
 
       this.onClientConnect.onClientEvent(eventData);
@@ -788,7 +786,7 @@ export class WalletConnectV2Provider {
 
     // Populates existing session to state (assume only the top one)
     if (client.session.length && !this.address && !this.isInitializing) {
-      const session = this.getCurrentSession(client);
+      const session = getCurrentSession(this.chainId, client);
       if (session) {
         await this.onSessionConnected({ session });
 
@@ -818,9 +816,15 @@ export class WalletConnectV2Provider {
         if (options.deletePairings) {
           this.walletConnector.core?.expirer?.set(pairing.topic, 0);
         } else {
-          await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
-            pairing.topic
-          );
+          try {
+            await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
+              pairing.topic
+            );
+          } catch (error) {
+            Logger.error(
+              WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
+            );
+          }
         }
       }
     } catch (error) {
@@ -828,93 +832,5 @@ export class WalletConnectV2Provider {
         WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
       );
     }
-  }
-
-  private getCurrentSession(client: Client): SessionTypes.Struct {
-    if (typeof client === "undefined") {
-      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
-    }
-
-    const acknowledgedSessions = client
-      .find(this.getConnectionParams())
-      .filter((s) => s.acknowledged);
-
-    if (acknowledgedSessions.length > 0) {
-      const lastKeyIndex = acknowledgedSessions.length - 1;
-      const session = acknowledgedSessions[lastKeyIndex];
-
-      return session;
-    } else if (client.session.length > 0) {
-      const lastKeyIndex = client.session.keys.length - 1;
-      const session = client.session.get(client.session.keys[lastKeyIndex]);
-
-      return session;
-    } else {
-      Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
-      );
-      throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
-      );
-    }
-  }
-
-  private getCurrentTopic(client: Client): SessionTypes.Struct["topic"] {
-    if (typeof client === "undefined") {
-      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
-    }
-
-    const session = this.getCurrentSession(client);
-    if (session?.topic) {
-      return session.topic;
-    } else {
-      throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
-      );
-    }
-  }
-
-  private getConnectionParams(
-    options?: ConnectParamsTypes
-  ): EngineTypes.FindParams {
-    const methods = [
-      ...WALLETCONNECT_MULTIVERSX_METHODS,
-      ...(options?.methods ?? []),
-    ];
-    const chains = [`${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`];
-    const events = options?.events ?? [];
-
-    return {
-      requiredNamespaces: {
-        [WALLETCONNECT_MULTIVERSX_NAMESPACE]: {
-          methods,
-          chains,
-          events,
-        },
-      },
-    };
-  }
-
-  private addressIsValid(destinationAddress: string): boolean {
-    try {
-      const addr = UserAddress.fromBech32(destinationAddress);
-      return !!addr;
-    } catch {
-      return false;
-    }
-  }
-
-  private getAddressFromSession(session: SessionTypes.Struct): string {
-    const selectedNamespace = session.namespaces[this.namespace];
-
-    if (selectedNamespace && selectedNamespace.accounts) {
-      // Use only the first address in case of multiple provided addresses
-      const currentSession = selectedNamespace.accounts[0];
-      const [namespace, reference, address] = currentSession.split(":");
-
-      return address;
-    }
-
-    return "";
   }
 }

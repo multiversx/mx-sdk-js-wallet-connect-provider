@@ -38,6 +38,7 @@ export enum WalletConnectV2ProviderErrorMessagesEnum {
   unableToConnect = "WalletConnect is unable to connect",
   unableToConnectExisting = "WalletConnect is unable to connect to existing pairing",
   unableToSignLoginToken = "WalletConnect could not sign login token",
+  unableToSign = "WalletConnect could not sign the message",
   unableToLogin = "WalletConnect is unable to login",
   unableToHandleTopic = "WalletConnect: Unable to handle topic update",
   unableToHandleEvent = "WalletConnect: Unable to handle events",
@@ -55,4 +56,5 @@ export enum WalletConnectV2ProviderErrorMessagesEnum {
   invalidCustomRequestResponse = "WalletConnect could not send the custom request",
   transactionError = "Transaction canceled",
   connectionError = "WalletConnect could not establish a connection",
+  invalidGuardian = "WalletConnect: Invalid Guardian",
 }
