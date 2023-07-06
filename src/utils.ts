@@ -84,8 +84,11 @@ export function getConnectionParams(
 ): EngineTypes.FindParams {
   const methods = [
     ...WALLETCONNECT_MULTIVERSX_METHODS,
-    ...(options?.methods ?? [OptionalOperation.SIGN_LOGIN_TOKEN]),
+    ...(options?.methods ?? []),
   ];
+  if (!options?.methods?.includes(OptionalOperation.SIGN_LOGIN_TOKEN)) {
+    methods.push(OptionalOperation.SIGN_LOGIN_TOKEN);
+  }
   const chains = [`${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${chainId}`];
   const events = options?.events ?? [];
 
