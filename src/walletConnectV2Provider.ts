@@ -45,6 +45,8 @@ export {
   ConnectParamsTypes,
   EngineTypes,
   WalletConnectV2ProviderErrorMessagesEnum,
+  Operation,
+  OptionalOperation,
 };
 
 export class WalletConnectV2Provider {
