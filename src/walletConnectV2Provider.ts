@@ -659,7 +659,7 @@ export class WalletConnectV2Provider {
     topic: string;
   }): Promise<void> {
     if (typeof this.walletConnector === "undefined") {
-      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
+      return;
     }
 
     try {
