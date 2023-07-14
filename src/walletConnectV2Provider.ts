@@ -659,7 +659,8 @@ export class WalletConnectV2Provider {
     topic: string;
   }): Promise<void> {
     if (typeof this.walletConnector === "undefined") {
-      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
+      Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
+      return;
     }
 
     try {
@@ -732,6 +733,11 @@ export class WalletConnectV2Provider {
       client.on("session_event", this.handleSessionEvents.bind(this));
 
       client.on("session_delete", async ({ topic }) => {
+        if (this.isInitializing) {
+          this.onClientConnect.onClientLogout();
+          this.reset();
+        }
+
         if (!this.session || this.session?.topic !== topic) {
           return;
         }
