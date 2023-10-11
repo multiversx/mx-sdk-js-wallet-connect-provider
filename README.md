@@ -1,10 +1,10 @@
 # mx-sdk-js-wallet-connect-provider
 
-Signing provider for dApps: Wallet Connect.
+Signing provider for dApps: WalletConnect.
 
-Documentation is available on [docs.multiversx.com](https://docs.multiversx.com/sdk-and-tools/erdjs/erdjs-signing-providers/), while an integration example can be found [here](https://github.com/multiversx/mx-sdk-js-examples/tree/main/signing-providers).
+Documentation is available on [docs.multiversx.com](https://docs.multiversx.com/sdk-and-tools/sdk-js/sdk-js-signing-providers/#the-wallet-connect-provider), while an integration example can be found [here](https://github.com/multiversx/mx-sdk-js-examples/tree/main/signing-providers).
 
-Note that **we recommend using [dapp-core](https://github.com/multiversx/mx-sdk-dapp)** instead of integrating the signing provider on your own.
+Note that **we recommend using [sdk-dapp](https://github.com/multiversx/mx-sdk-dapp)** instead of integrating the signing provider on your own.
 
 ## Distribution
 
@@ -31,13 +31,13 @@ npm run compile
 
 The WalletConnect 2.0 Signing Provider can use the [WalletConnect Cloud Relay](https://docs.walletconnect.com/2.0/cloud/relay) default address: `wss://relay.walletconnect.com`, in order to be able to access the Cloud Relay you will need to generate a Project ID
 
-The Project ID can be generated for free here: https://cloud.walletconnect.com/sign-in
+The Project ID can be generated for free here: [https://cloud.walletconnect.com/sign-in](https://cloud.walletconnect.com/sign-in)
 
 The WalletConnect Project ID grants you access to the WalletConnect Cloud Relay that securely manages communication between the device and the dApp.
 
 ## Usage Examples
 
-For this example we will use the WalletConnect 2.0 provider since 1.0 is no longer mantained and it will be [deprecated soon](https://medium.com/walletconnect/weve-reset-the-clock-on-the-walletconnect-v1-0-shutdown-now-scheduled-for-june-28-2023-ead2d953b595)
+For this example we will use the WalletConnect 2.0 provider since 1.0 is [deprecated](https://medium.com/walletconnect/weve-reset-the-clock-on-the-walletconnect-v1-0-shutdown-now-scheduled-for-june-28-2023-ead2d953b595)
 
 First, let's see a (simple) way to build a QR dialog using [`qrcode`](https://www.npmjs.com/package/qrcode) (and bootstrap):
 
