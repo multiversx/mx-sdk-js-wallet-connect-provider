@@ -22,6 +22,7 @@ import {
   getMetadata,
   ConnectParamsTypes,
   TransactionResponse,
+  throttle,
 } from "./utils";
 
 interface SessionEventTypes {
@@ -198,6 +199,7 @@ export class WalletConnectV2Provider {
         const session = await options.approval();
 
         if (options.token) {
+          await throttle(100); // allow for relay to update
           const address = getAddressFromSession(session);
 
           const selectedNamespace =
