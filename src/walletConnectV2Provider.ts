@@ -8,7 +8,10 @@ import {
   SignClientTypes,
 } from "@walletconnect/types";
 import { getSdkError, isValidArray } from "@walletconnect/utils";
-import { WALLETCONNECT_MULTIVERSX_NAMESPACE } from "./constants";
+import {
+  WALLETCONNECT_MULTIVERSX_NAMESPACE,
+  WALLETCONNECT_SIGN_LOGIN_DELAY,
+} from "./constants";
 import { WalletConnectV2ProviderErrorMessagesEnum } from "./errors";
 import { Logger } from "./logger";
 import { Operation, OptionalOperation } from "./operation";
@@ -22,6 +25,7 @@ import {
   getMetadata,
   ConnectParamsTypes,
   TransactionResponse,
+  sleep,
 } from "./utils";
 
 interface SessionEventTypes {
@@ -198,6 +202,7 @@ export class WalletConnectV2Provider {
         const session = await options.approval();
 
         if (options.token) {
+          await sleep(WALLETCONNECT_SIGN_LOGIN_DELAY); // allow for relay to update
           const address = getAddressFromSession(session);
 
           const selectedNamespace =

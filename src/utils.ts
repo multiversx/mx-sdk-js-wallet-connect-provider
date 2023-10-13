@@ -179,3 +179,11 @@ export function getMetadata(metadata?: SignClientTypes.Options["metadata"]) {
 
   return;
 }
+
+export async function sleep(timeout: number) {
+  return await new Promise<void>((resolve) =>
+    setTimeout(() => {
+      resolve();
+    }, timeout)
+  );
+}
