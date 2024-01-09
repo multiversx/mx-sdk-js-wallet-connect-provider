@@ -157,6 +157,9 @@ export class WalletConnectV2Provider {
 
     const connectParams = getConnectionParams(this.chainId, options);
 
+    console.log("DEBUG --- connect | connectParams", connectParams);
+    console.log("DEBUG --- connect | options", options);
+
     try {
       const response = await this.walletConnector.connect({
         pairingTopic: options?.topic,
@@ -196,10 +199,13 @@ export class WalletConnectV2Provider {
     if (typeof this.session !== "undefined") {
       await this.logout({ topic: this.session?.topic });
     }
+    console.log("DEBUG --- login | options", options);
 
     try {
       if (options && options.approval) {
         const session = await options.approval();
+
+        console.log("DEBUG --- login | session", session);
 
         if (options.token) {
           await sleep(WALLETCONNECT_SIGN_LOGIN_DELAY); // allow for relay to update
@@ -213,18 +219,22 @@ export class WalletConnectV2Provider {
             ? OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
             : OptionalOperation.SIGN_LOGIN_TOKEN;
 
-          const { signature }: { signature: string } =
-            await this.walletConnector.request({
-              chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
-              topic: session.topic,
-              request: {
-                method,
-                params: {
-                  token: options.token,
-                  address,
-                },
+          const tokenRequest = {
+            chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
+            topic: session.topic,
+            request: {
+              method,
+              params: {
+                token: options.token,
+                address,
               },
-            });
+            },
+          };
+
+          console.log("DEBUG --- login | tokenRequest", tokenRequest);
+
+          const { signature }: { signature: string } =
+            await this.walletConnector.request(tokenRequest);
 
           if (!signature) {
             Logger.error(
@@ -265,6 +275,8 @@ export class WalletConnectV2Provider {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
+
+    console.log("DEBUG --- logout | options", options);
 
     try {
       if (
@@ -613,6 +625,8 @@ export class WalletConnectV2Provider {
     address: string;
     signature?: string;
   }): Promise<string> {
+    console.log("DEBUG --- loginAccount | options", options);
+
     if (!options) {
       return "";
     }
@@ -622,6 +636,7 @@ export class WalletConnectV2Provider {
       if (options.signature) {
         this.signature = options.signature;
       }
+      console.log("DEBUG --- loginAccount | trigger onClientLogin");
       this.onClientConnect.onClientLogin();
 
       return this.address;
@@ -641,6 +656,7 @@ export class WalletConnectV2Provider {
     session: SessionTypes.Struct;
     signature?: string;
   }): Promise<string> {
+    console.log("DEBUG --- onSessionConnected | options", options);
     if (!options) {
       return "";
     }
@@ -648,6 +664,8 @@ export class WalletConnectV2Provider {
     this.session = options.session;
 
     const address = getAddressFromSession(options.session);
+
+    console.log("DEBUG --- onSessionConnected | address", address);
 
     if (address) {
       await this.loginAccount({ address, signature: options.signature });
@@ -667,7 +685,7 @@ export class WalletConnectV2Provider {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       return;
     }
-
+    console.log("DEBUG --- handleTopicUpdateEvent | topic ", topic);
     try {
       const existingPairings = await this.getPairings();
 
@@ -702,6 +720,10 @@ export class WalletConnectV2Provider {
     if (typeof this.walletConnector === "undefined") {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
+
+    console.log("DEBUG --- handleTopicUpdateEvent | topic ", topic);
+    console.log("DEBUG --- handleTopicUpdateEvent | params ", params);
+
     if (this.session && this.session?.topic !== topic) {
       return;
     }
@@ -725,6 +747,10 @@ export class WalletConnectV2Provider {
     try {
       // Session Events
       client.on("session_update", ({ topic, params }) => {
+        console.log("DEBUG --- session_update | { topic, params } ", {
+          topic,
+          params,
+        });
         if (!this.session || this.session?.topic !== topic) {
           return;
         }
@@ -747,6 +773,8 @@ export class WalletConnectV2Provider {
           return;
         }
 
+        console.log("DEBUG --- session_delete | topic ", topic);
+
         Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionDeleted);
 
         this.onClientConnect.onClientLogout();
@@ -759,6 +787,8 @@ export class WalletConnectV2Provider {
         if (!this.session || this.session?.topic !== topic) {
           return;
         }
+
+        console.log("DEBUG --- session_expire | topic ", topic);
 
         Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionExpired);
         this.onClientConnect.onClientLogout();
@@ -801,6 +831,10 @@ export class WalletConnectV2Provider {
     if (client.session.length && !this.address && !this.isInitializing) {
       const session = getCurrentSession(this.chainId, client);
       if (session) {
+        console.log(
+          "DEBUG --- checkPersistedState | onSessionConnected | session ",
+          session
+        );
         await this.onSessionConnected({ session });
 
         return session;
@@ -821,6 +855,11 @@ export class WalletConnectV2Provider {
       const inactivePairings =
         this.walletConnector.core?.pairing?.pairings?.getAll({ active: false });
 
+      console.log(
+        "DEBUG --- cleanupPendingPairings | inactivePairings ",
+        inactivePairings
+      );
+
       if (!isValidArray(inactivePairings)) {
         return;
       }
@@ -830,6 +869,7 @@ export class WalletConnectV2Provider {
           this.walletConnector.core?.expirer?.set(pairing.topic, 0);
         } else {
           try {
+            console.log("DEBUG --- cleanupPendingPairings | pairing ", pairing);
             await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
               pairing.topic
             );
