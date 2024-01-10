@@ -15,13 +15,13 @@
   "author": "MultiversX",
   "license": "MIT",
   "dependencies": {
-    "@walletconnect/sign-client": "2.10.2",
-    "@walletconnect/utils": "2.10.2",
+    "@walletconnect/sign-client": "2.11.0",
+    "@walletconnect/utils": "2.11.0",
     "bech32": "1.1.4"
   },
   "devDependencies": {
     "@types/node": "17.0.23",
-    "@walletconnect/types": "2.10.2",
+    "@walletconnect/types": "2.11.0",
     "esmify": "2.1.1",
     "tslib": "2.4.0",
     "typescript": "4.1.2"
