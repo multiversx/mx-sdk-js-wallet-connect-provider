@@ -223,6 +223,8 @@ If the wallet (or the user) does NOT approve the session, then it is rejected. O
 
 ### Optional Methods
 
+A detailed documentation for the default methods is available [here](https://specs.walletconnect.com/2.0/blockchain-rpc/multiversx-rpc).
+
 The default methods are `mvx_signTransaction`, `mvx_signTransactions` and `mvx_signMessage`.
 
 Any additional methods must be passed in the `.connect` step
