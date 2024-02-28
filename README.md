@@ -6,6 +6,8 @@ Documentation is available on [docs.multiversx.com](https://docs.multiversx.com/
 
 Note that **we recommend using [sdk-dapp](https://github.com/multiversx/mx-sdk-dapp)** instead of integrating the signing provider on your own.
 
+You can check out the integration with `sdk-dapp` in the [Template dApp](https://github.com/multiversx/mx-template-dapp) repository with a live example [here](https://devnet.template-dapp.multiversx.com).
+
 ## Distribution
 
 [npm](https://www.npmjs.com/package/@multiversx/sdk-wallet-connect-provider)
@@ -180,6 +182,8 @@ MultiversX Namespace: `mvx`
 
 Reference: `1` for `Mainnet`, `T` for `Testnet`, `D` for `Devnet` ( same as the MultiversX chainID )
 
+The MultiversX namespaces respect the [CAIP Standards](https://namespaces.chainagnostic.org).
+
 ### Example of a MultiversX WalletConnect Proposal Namespace
 
 ```json
@@ -238,3 +242,7 @@ const { uri, approval } = await provider.connect({
 - `mvx_signLoginToken` - Included by default for now for compatibility reasons. Subject to change as it will be replaced by the `mvx_signNativeAuthToken` method soon.
 - `mvx_signNativeAuthToken` - Used while logging in with a nativeAuth token, this will offer a special UI based on that format.
 - `mvx_cancelAction` - The dApp can trigger a `sendCustomRequest` event that will cancel the current signing flow on the device.
+
+### WalletConnect JSON-RPC Methods
+
+The available MultiversX JSON-RPC Methods and the structure can be check on WalletConnect's [Specs](https://specs.walletconnect.com/2.0/blockchain-rpc/multiversx-rpc) and on [MultiversX Docs](https://docs.multiversx.com/integrators/walletconnect-json-rpc-methods).
