@@ -202,7 +202,7 @@ export class WalletConnectV2Provider {
         const session = await options.approval();
 
         if (options.token) {
-          await sleep(WALLETCONNECT_SIGN_LOGIN_DELAY); // allow for relay to update
+          await sleep(WALLETCONNECT_SIGN_LOGIN_DELAY); // Delay the sign login token action to allow the UI to update properly
           const address = getAddressFromSession(session);
 
           const selectedNamespace =

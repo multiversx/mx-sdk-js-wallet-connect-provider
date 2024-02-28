@@ -7,5 +7,5 @@ export const WALLETCONNECT_MULTIVERSX_METHODS = Object.values(Operation);
 // WalletConnect optional methods for Multiversx
 export const WALLETCONNECT_MULTIVERSX_OPTIONAL_METHODS =
   Object.values(OptionalOperation);
-// Delay the sign login token action for 200ms to allow the relay to update properly
-export const WALLETCONNECT_SIGN_LOGIN_DELAY = 200;
+// Delay the sign login token action for 500ms to allow the UI to update properly
+export const WALLETCONNECT_SIGN_LOGIN_DELAY = 500;
