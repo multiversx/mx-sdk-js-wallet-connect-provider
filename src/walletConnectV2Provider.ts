@@ -165,6 +165,16 @@ export class WalletConnectV2Provider {
 
       return response;
     } catch (error) {
+      if (options?.topic) {
+        try {
+          this.walletConnector.core?.expirer?.set(options.topic, 0);
+        } catch (error) {
+          Logger.error(
+            WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
+          );
+        }
+      }
+
       this.reset();
       Logger.error(
         options?.topic
