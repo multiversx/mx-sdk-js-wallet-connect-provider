@@ -20,12 +20,13 @@
     "bech32": "1.1.4"
   },
   "devDependencies": {
+    "@multiversx/sdk-core": ">= 13.5.0",
     "@types/node": "17.0.23",
     "@walletconnect/types": "2.13.3",
     "tslib": "2.4.0",
     "typescript": "5.5.4"
   },
   "peerDependencies": {
-    "@multiversx/sdk-core": ">= 12.5.0"
+    "@multiversx/sdk-core": ">= 13.5.0"
   }
 }
