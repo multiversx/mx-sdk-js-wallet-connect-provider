@@ -1,5 +1,4 @@
-import { SignableMessage, Transaction } from "@multiversx/sdk-core";
-import { Signature } from "@multiversx/sdk-core/out/signature";
+import {Address, Message, Transaction } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
@@ -53,12 +52,15 @@ export {
   OptionalOperation,
 };
 
+export interface IProviderAccount {
+  address: string;
+  signature?: string;
+}
+
 export class WalletConnectV2Provider {
   walletConnectV2Relay: string;
   walletConnectV2ProjectId: string;
   chainId: string = "";
-  address: string = "";
-  signature: string = "";
   isInitializing: boolean = false;
   walletConnector: Client | undefined;
   session: SessionTypes.Struct | undefined;
@@ -67,6 +69,7 @@ export class WalletConnectV2Provider {
   options: SignClientTypes.Options | undefined = {};
 
   private onClientConnect: IClientConnect;
+  private account: IProviderAccount = { address: "" };
 
   constructor(
     onClientConnect: IClientConnect,
@@ -82,9 +85,8 @@ export class WalletConnectV2Provider {
     this.options = options;
   }
 
-  private reset() {
-    this.address = "";
-    this.signature = "";
+  private disconnect() {
+    this.account = { address: '', signature: '' };
     this.walletConnector = undefined;
     this.session = undefined;
     this.pairings = undefined;
@@ -100,7 +102,7 @@ export class WalletConnectV2Provider {
       try {
         if (!this.isInitializing) {
           this.isInitializing = true;
-          this.reset();
+          this.disconnect();
           const metadata = this.options?.metadata
             ? {
                 metadata: getMetadata(this.options?.metadata),
@@ -139,12 +141,23 @@ export class WalletConnectV2Provider {
   /**
    * Returns true if provider is initialized and a valid session is set
    */
-  isConnected(): Promise<boolean> {
-    return new Promise((resolve, _) =>
-      resolve(
-        Boolean(this.isInitialized() && typeof this.session !== "undefined")
-      )
-    );
+  isConnected(): boolean {
+    return Boolean(this.isInitialized() && typeof this.session !== "undefined");
+  }
+
+  /**
+   * Returns the current account
+   */
+  getAccount(): IProviderAccount | null {
+    return this.account;
+  }
+
+  /**
+   * Sets the current account
+   * @param account
+   */
+  setAccount(account: IProviderAccount): void {
+    this.account = account;
   }
 
   async connect(options?: ConnectParamsTypes): Promise<{
@@ -175,7 +188,7 @@ export class WalletConnectV2Provider {
         }
       }
 
-      this.reset();
+      this.disconnect();
       Logger.error(
         options?.topic
           ? WalletConnectV2ProviderErrorMessagesEnum.unableToConnectExisting
@@ -193,7 +206,7 @@ export class WalletConnectV2Provider {
   async login(options?: {
     approval?: () => Promise<SessionTypes.Struct>;
     token?: string;
-  }): Promise<string> {
+  }): Promise<IProviderAccount | null> {
     this.isInitializing = true;
     if (typeof this.walletConnector === "undefined") {
       await this.connect();
@@ -257,14 +270,14 @@ export class WalletConnectV2Provider {
         });
       }
     } catch (error) {
-      this.reset();
+      this.disconnect();
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.unableToLogin);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.unableToLogin);
     } finally {
       this.isInitializing = false;
     }
 
-    return "";
+    return null;
   }
 
   /**
@@ -301,7 +314,7 @@ export class WalletConnectV2Provider {
           reason: getSdkError("USER_DISCONNECTED"),
         });
 
-        this.reset();
+        this.disconnect();
 
         await this.cleanupPendingPairings({ deletePairings: true });
       }
@@ -317,25 +330,25 @@ export class WalletConnectV2Provider {
   /**
    * Fetches the WalletConnect address
    */
-  async getAddress(): Promise<string> {
+  getAddress(): string {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    return this.address;
+    return this.account.address;
   }
 
   /**
    * Fetches the WalletConnect signature
    */
-  async getSignature(): Promise<string> {
+  getSignature(): string | undefined {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    return this.signature;
+    return this.account.signature;
   }
 
   /**
@@ -357,7 +370,15 @@ export class WalletConnectV2Provider {
    * Signs a message and returns it signed
    * @param message
    */
-  async signMessage(message: SignableMessage): Promise<SignableMessage> {
+  async signMessage(messageToSign: Message): Promise<Message> {
+    const message = new Message({
+      data: Buffer.from(messageToSign.data),
+      address:
+          messageToSign.address ?? Address.fromBech32(this.account.address),
+      signer: 'wallet-connect-v2',
+      version: messageToSign.version
+    });
+
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -383,7 +404,7 @@ export class WalletConnectV2Provider {
             method: Operation.SIGN_MESSAGE,
             params: {
               address,
-              message: message.message.toString(),
+              message: messageToSign,
             },
           },
         });
@@ -398,7 +419,7 @@ export class WalletConnectV2Provider {
       }
 
       try {
-        message.applySignature(new Signature(signature));
+        message.signature = Buffer.from(signature, "hex");
       } catch (error) {
         Logger.error(
           WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
@@ -628,13 +649,13 @@ export class WalletConnectV2Provider {
     }
 
     if (addressIsValid(options.address)) {
-      this.address = options.address;
+      this.account.address = options.address;
       if (options.signature) {
-        this.signature = options.signature;
+        this.account.signature = options.signature;
       }
       this.onClientConnect.onClientLogin();
 
-      return this.address;
+      return this.account.address;
     }
 
     Logger.error(
@@ -650,22 +671,24 @@ export class WalletConnectV2Provider {
   private async onSessionConnected(options?: {
     session: SessionTypes.Struct;
     signature?: string;
-  }): Promise<string> {
+  }): Promise<IProviderAccount | null> {
     if (!options) {
-      return "";
+      return null;
     }
 
     this.session = options.session;
+    this.account.signature = options.signature || "";
 
     const address = getAddressFromSession(options.session);
 
     if (address) {
       await this.loginAccount({ address, signature: options.signature });
+      this.account.address = address;
 
-      return address;
+      return this.account;
     }
 
-    return "";
+    return null;
   }
 
   private async handleTopicUpdateEvent({
@@ -681,7 +704,7 @@ export class WalletConnectV2Provider {
     try {
       const existingPairings = await this.getPairings();
 
-      if (this.address && !this.isInitializing && existingPairings) {
+      if (this.account.address && !this.isInitializing && existingPairings) {
         if (existingPairings?.length === 0) {
           this.onClientConnect.onClientLogout();
         } else {
@@ -750,7 +773,7 @@ export class WalletConnectV2Provider {
       client.on("session_delete", async ({ topic }) => {
         if (this.isInitializing) {
           this.onClientConnect.onClientLogout();
-          this.reset();
+          this.disconnect();
         }
 
         if (!this.session || this.session?.topic !== topic) {
@@ -761,7 +784,7 @@ export class WalletConnectV2Provider {
 
         this.onClientConnect.onClientLogout();
 
-        this.reset();
+        this.disconnect();
         await this.cleanupPendingPairings({ deletePairings: true });
       });
 
@@ -773,7 +796,7 @@ export class WalletConnectV2Provider {
         Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionExpired);
         this.onClientConnect.onClientLogout();
 
-        this.reset();
+        this.disconnect();
         await this.cleanupPendingPairings({ deletePairings: true });
       });
 
@@ -808,7 +831,7 @@ export class WalletConnectV2Provider {
     }
 
     // Populates existing session to state (assume only the top one)
-    if (client.session.length && !this.address && !this.isInitializing) {
+    if (client.session.length && !this.account.address && !this.isInitializing) {
       const session = getCurrentSession(this.chainId, client);
       if (session) {
         await this.onSessionConnected({ session });
