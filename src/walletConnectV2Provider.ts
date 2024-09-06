@@ -1,4 +1,4 @@
-import {Message, Transaction } from "@multiversx/sdk-core";
+import { Message, Transaction } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
