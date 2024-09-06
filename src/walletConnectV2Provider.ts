@@ -61,8 +61,6 @@ export class WalletConnectV2Provider {
   walletConnectV2Relay: string;
   walletConnectV2ProjectId: string;
   chainId: string = "";
-  address: string = "";
-  signature: string = "";
   isInitializing: boolean = false;
   walletConnector: Client | undefined;
   session: SessionTypes.Struct | undefined;
@@ -332,25 +330,25 @@ export class WalletConnectV2Provider {
   /**
    * Fetches the WalletConnect address
    */
-  async getAddress(): Promise<string> {
+  getAddress(): string {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    return this.address;
+    return this.account.address;
   }
 
   /**
    * Fetches the WalletConnect signature
    */
-  async getSignature(): Promise<string> {
+  getSignature(): string | undefined {
     if (typeof this.walletConnector === "undefined") {
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
 
-    return this.signature;
+    return this.account.signature;
   }
 
   /**
@@ -647,13 +645,13 @@ export class WalletConnectV2Provider {
     }
 
     if (addressIsValid(options.address)) {
-      this.address = options.address;
+      this.account.address = options.address;
       if (options.signature) {
-        this.signature = options.signature;
+        this.account.signature = options.signature;
       }
       this.onClientConnect.onClientLogin();
 
-      return this.address;
+      return this.account.address;
     }
 
     Logger.error(
@@ -702,7 +700,7 @@ export class WalletConnectV2Provider {
     try {
       const existingPairings = await this.getPairings();
 
-      if (this.address && !this.isInitializing && existingPairings) {
+      if (this.account.address && !this.isInitializing && existingPairings) {
         if (existingPairings?.length === 0) {
           this.onClientConnect.onClientLogout();
         } else {
@@ -829,7 +827,7 @@ export class WalletConnectV2Provider {
     }
 
     // Populates existing session to state (assume only the top one)
-    if (client.session.length && !this.address && !this.isInitializing) {
+    if (client.session.length && !this.account.address && !this.isInitializing) {
       const session = getCurrentSession(this.chainId, client);
       if (session) {
         await this.onSessionConnected({ session });
