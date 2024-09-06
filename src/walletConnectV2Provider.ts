@@ -1,4 +1,4 @@
-import { Message, Transaction } from "@multiversx/sdk-core";
+import {Address, Message, Transaction } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
@@ -370,9 +370,13 @@ export class WalletConnectV2Provider {
    * Signs a message and returns it signed
    * @param message
    */
-  async signMessage(messageToSign: string): Promise<Message> {
+  async signMessage(messageToSign: Message): Promise<Message> {
     const message = new Message({
-      data: Buffer.from(messageToSign),
+      data: Buffer.from(messageToSign.data),
+      address:
+          messageToSign.address ?? Address.fromBech32(this.account.address),
+      signer: 'wallet-connect-v2',
+      version: messageToSign.version
     });
 
     if (typeof this.walletConnector === "undefined") {
