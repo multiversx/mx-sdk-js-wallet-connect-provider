@@ -8,12 +8,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Use Node.js LTS
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: "18.19.0"
+          node-version: "18.20.4"
 
       - name: Copy package-lock.json file
         run: cp package-lock.json package-lock-copy.json
