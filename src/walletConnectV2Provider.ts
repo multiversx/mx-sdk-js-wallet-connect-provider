@@ -1,4 +1,4 @@
-import {Address, Message, Transaction } from "@multiversx/sdk-core";
+import { Address, Message, Transaction } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
@@ -86,7 +86,7 @@ export class WalletConnectV2Provider {
   }
 
   private disconnect() {
-    this.account = { address: '', signature: '' };
+    this.account = { address: "", signature: "" };
     this.walletConnector = undefined;
     this.session = undefined;
     this.pairings = undefined;
@@ -374,9 +374,9 @@ export class WalletConnectV2Provider {
     const message = new Message({
       data: Buffer.from(messageToSign.data),
       address:
-          messageToSign.address ?? Address.fromBech32(this.account.address),
-      signer: 'wallet-connect-v2',
-      version: messageToSign.version
+        messageToSign.address ?? Address.fromBech32(this.account.address),
+      signer: "wallet-connect-v2",
+      version: messageToSign.version,
     });
 
     if (typeof this.walletConnector === "undefined") {
@@ -395,7 +395,7 @@ export class WalletConnectV2Provider {
     }
 
     try {
-      const address = await this.getAddress();
+      const address = this.getAddress();
       const { signature }: { signature: string } =
         await this.walletConnector.request({
           chainId: `${WALLETCONNECT_MULTIVERSX_NAMESPACE}:${this.chainId}`,
@@ -404,7 +404,7 @@ export class WalletConnectV2Provider {
             method: Operation.SIGN_MESSAGE,
             params: {
               address,
-              message: messageToSign,
+              message: message.data.toString(),
             },
           },
         });
@@ -831,7 +831,11 @@ export class WalletConnectV2Provider {
     }
 
     // Populates existing session to state (assume only the top one)
-    if (client.session.length && !this.account.address && !this.isInitializing) {
+    if (
+      client.session.length &&
+      !this.account.address &&
+      !this.isInitializing
+    ) {
       const session = getCurrentSession(this.chainId, client);
       if (session) {
         await this.onSessionConnected({ session });
