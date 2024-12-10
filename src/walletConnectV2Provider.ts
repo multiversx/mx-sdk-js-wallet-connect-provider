@@ -57,6 +57,8 @@ export interface IProviderAccount {
   signature?: string;
 }
 
+export type WalletConnectV2ProviderOptionsType = SignClientTypes.Options | undefined
+
 export class WalletConnectV2Provider {
   walletConnectV2Relay: string;
   walletConnectV2ProjectId: string;
@@ -66,7 +68,7 @@ export class WalletConnectV2Provider {
   session: SessionTypes.Struct | undefined;
   pairings: PairingTypes.Struct[] | undefined;
   processingTopic: string = "";
-  options: SignClientTypes.Options | undefined = {};
+  options: WalletConnectV2ProviderOptionsType = {};
 
   private onClientConnect: IClientConnect;
   private account: IProviderAccount = { address: "" };
