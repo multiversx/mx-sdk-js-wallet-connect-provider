@@ -1,6 +1,6 @@
 {
   "name": "@multiversx/sdk-wallet-connect-provider",
-  "version": "5.0.2-alpha.0",
+  "version": "5.0.2",
   "description": "Signing provider for dApps: WalletConnect",
   "main": "out/index.js",
   "types": "out/index.d.js",
