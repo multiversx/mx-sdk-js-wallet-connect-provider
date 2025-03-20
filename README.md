@@ -245,4 +245,4 @@ const { uri, approval } = await provider.connect({
 
 ### WalletConnect JSON-RPC Methods
 
-The available MultiversX JSON-RPC Methods and the structure can be checked on WalletConnect's [Specs](https://specs.walletconnect.com/2.0/blockchain-rpc/multiversx-rpc) and on [MultiversX Docs](https://docs.multiversx.com/integrators/walletconnect-json-rpc-methods).
+The available MultiversX JSON-RPC Methods and the structure can be checked on [MultiversX Docs](https://docs.multiversx.com/integrators/walletconnect-json-rpc-methods).
