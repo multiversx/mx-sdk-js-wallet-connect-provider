@@ -1,12 +1,11 @@
 import { Address, Transaction } from "@multiversx/sdk-core";
-import { Signature } from "@multiversx/sdk-core/out/signature";
 import Client from "@walletconnect/sign-client";
-import { getAppMetadata } from "@walletconnect/utils";
 import {
   EngineTypes,
   SessionTypes,
   SignClientTypes,
 } from "@walletconnect/types";
+import { getAppMetadata } from "@walletconnect/utils";
 
 import {
   WALLETCONNECT_MULTIVERSX_METHODS,
@@ -144,7 +143,7 @@ export function applyTransactionSignature({
   }
 
   const { signature, guardianSignature, version, options, guardian } = response;
-  const transactionGuardian = transaction.getGuardian().bech32();
+  const transactionGuardian = transaction.guardian.toBech32();
 
   if (transactionGuardian && transactionGuardian !== guardian) {
     Logger.error(WalletConnectV2ProviderErrorMessagesEnum.invalidGuardian);
@@ -152,21 +151,21 @@ export function applyTransactionSignature({
   }
 
   if (guardian) {
-    transaction.setGuardian(Address.fromBech32(guardian));
+    transaction.guardian = Address.newFromBech32(guardian);
   }
 
   if (version) {
-    transaction.setVersion(version);
+    transaction.version = version;
   }
 
   if (options != null) {
-    transaction.setOptions(options);
+    transaction.options = options;
   }
 
-  transaction.applySignature(new Signature(signature));
+  transaction.signature = Buffer.from(signature);
 
   if (guardianSignature) {
-    transaction.applyGuardianSignature(new Signature(guardianSignature));
+    transaction.guardianSignature = Buffer.from(guardianSignature);
   }
 
   return transaction;
