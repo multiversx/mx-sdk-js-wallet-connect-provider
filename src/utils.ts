@@ -162,10 +162,10 @@ export function applyTransactionSignature({
     transaction.options = options;
   }
 
-  transaction.signature = Buffer.from(signature);
+  transaction.signature = Buffer.from(signature, "hex");
 
   if (guardianSignature) {
-    transaction.guardianSignature = Buffer.from(guardianSignature);
+    transaction.guardianSignature = Buffer.from(guardianSignature, "hex");
   }
 
   return transaction;
