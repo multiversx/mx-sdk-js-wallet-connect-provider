@@ -708,12 +708,20 @@ export class WalletConnectV2Provider {
     try {
       const existingPairings = await this.getPairings();
 
+      console.log("existingPairings", existingPairings);
+
       if (this.account.address && !this.isInitializing && existingPairings) {
         if (existingPairings?.length === 0) {
           this.onClientConnect.onClientLogout();
         } else {
           const lastActivePairing =
             existingPairings[existingPairings.length - 1];
+
+          console.log("lastActivePairing", lastActivePairing);
+
+          if (lastActivePairing?.active) {
+            return;
+          }
 
           if (lastActivePairing?.topic === topic) {
             this.onClientConnect.onClientLogout();
