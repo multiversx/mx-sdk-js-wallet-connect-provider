@@ -695,40 +695,6 @@ export class WalletConnectV2Provider {
     return null;
   }
 
-  private async handleTopicUpdateEvent({
-    topic,
-  }: {
-    topic: string;
-  }): Promise<void> {
-    if (typeof this.walletConnector === "undefined") {
-      Logger.error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
-      return;
-    }
-
-    try {
-      const existingPairings = await this.getPairings();
-
-      if (this.account.address && !this.isInitializing && existingPairings) {
-        if (existingPairings?.length === 0) {
-          this.onClientConnect.onClientLogout();
-        } else {
-          const lastActivePairing =
-            existingPairings[existingPairings.length - 1];
-
-          if (lastActivePairing?.topic === topic) {
-            this.onClientConnect.onClientLogout();
-          }
-        }
-      }
-    } catch (error) {
-      Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.unableToHandleTopic
-      );
-    } finally {
-      this.pairings = await this.getPairings();
-    }
-  }
-
   private async handleSessionEvents({
     topic,
     params,
@@ -803,17 +769,6 @@ export class WalletConnectV2Provider {
         this.disconnect();
         await this.cleanupPendingPairings({ deletePairings: true });
       });
-
-      // Pairing Events
-      client.core?.pairing?.events.on(
-        "pairing_delete",
-        this.handleTopicUpdateEvent.bind(this)
-      );
-
-      client.core?.pairing?.events.on(
-        "pairing_expire",
-        this.handleTopicUpdateEvent.bind(this)
-      );
     } catch (error) {
       Logger.error(
         WalletConnectV2ProviderErrorMessagesEnum.unableToHandleEvent
