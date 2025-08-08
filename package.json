@@ -27,6 +27,6 @@
     "typescript": "5.5.4"
   },
   "peerDependencies": {
-    "@multiversx/sdk-core": "^15.0.0"
+    "@multiversx/sdk-core": "^14.0.0 || ^15.0.0"
   }
 }
