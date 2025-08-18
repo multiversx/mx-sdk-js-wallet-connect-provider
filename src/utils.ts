@@ -2,6 +2,7 @@ import { Address, Transaction } from "@multiversx/sdk-core";
 import Client from "@walletconnect/sign-client";
 import {
   EngineTypes,
+  ProposalTypes,
   SessionTypes,
   SignClientTypes,
 } from "@walletconnect/types";
@@ -38,7 +39,7 @@ export function getCurrentSession(
   }
 
   const acknowledgedSessions = client
-    .find(getConnectionParams(chainId))
+    .find(getExistingConnectionParams(chainId))
     .filter((s) => s.acknowledged);
 
   if (acknowledgedSessions.length > 0) {
@@ -80,7 +81,27 @@ export function getCurrentTopic(
 export function getConnectionParams(
   chainId: string,
   options?: ConnectParamsTypes
+): EngineTypes.ConnectParams {
+  const optionalNamespaces = getMvxNamespace(chainId, options);
+  return {
+    optionalNamespaces,
+  };
+}
+
+export function getExistingConnectionParams(
+  chainId: string,
+  options?: ConnectParamsTypes
 ): EngineTypes.FindParams {
+  const requiredNamespaces = getMvxNamespace(chainId, options);
+  return {
+    requiredNamespaces,
+  };
+}
+
+export function getMvxNamespace(
+  chainId: string,
+  options?: ConnectParamsTypes
+): ProposalTypes.OptionalNamespaces {
   const methods = [
     ...WALLETCONNECT_MULTIVERSX_METHODS,
     ...(options?.methods ?? []),
@@ -92,12 +113,10 @@ export function getConnectionParams(
   const events = options?.events ?? [];
 
   return {
-    requiredNamespaces: {
-      [WALLETCONNECT_MULTIVERSX_NAMESPACE]: {
-        methods,
-        chains,
-        events,
-      },
+    [WALLETCONNECT_MULTIVERSX_NAMESPACE]: {
+      methods,
+      chains,
+      events,
     },
   };
 }
