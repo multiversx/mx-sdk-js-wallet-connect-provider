@@ -188,7 +188,7 @@ The MultiversX namespaces respect the [CAIP Standards](https://namespaces.chaina
 
 ```json
 {
-  "requiredNamespaces": {
+  "optionalNamespaces": {
     "mvx": {
       "chains": ["mvx:D"],
       "methods": [
