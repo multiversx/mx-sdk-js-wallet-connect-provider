@@ -13,7 +13,7 @@ jobs:
       - name: Use Node.js LTS
         uses: actions/setup-node@v4
         with:
-          node-version: "18.20.4"
+          node-version: "18.20.8"
 
       - name: Copy package-lock.json file
         run: cp package-lock.json package-lock-copy.json
