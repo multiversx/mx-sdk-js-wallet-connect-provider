@@ -43,6 +43,33 @@ For this example we will use the WalletConnect 2.0 provider since 1.0 is [deprec
 
 First, let's see a (simple) way to build a QR dialog using [`qrcode`](https://www.npmjs.com/package/qrcode) (and bootstrap):
 
+
+
+### Disconnect Example
+
+When you want to close the WalletConnect session and clear all active connections:
+
+```ts
+import { WalletConnectProvider } from "@multiversx/sdk-wallet-connect-provider";
+
+async function disconnectWallet(provider: WalletConnectProvider) {
+  try {
+    await provider.disconnect();
+    console.log("Wallet disconnected successfully");
+  } catch (error) {
+    console.error("Error disconnecting wallet:", error);
+  }
+}
+```
+
+You can also listen for the `disconnect` event to handle UI updates:
+
+```ts
+provider.on("disconnect", () => {
+  console.log("Session terminated");
+});
+```
+
 ```js
 import QRCode from "qrcode";
 
