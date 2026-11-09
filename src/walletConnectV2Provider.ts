@@ -30,6 +30,7 @@ import {
   TransactionResponse,
   sleep,
 } from "./utils";
+import { getSharedClient } from "./clientCache";
 
 interface SessionEventTypes {
   event: {
@@ -78,6 +79,9 @@ export class WalletConnectV2Provider {
 
   private onClientConnect: IClientConnect;
   private account: IProviderAccount = { address: "" };
+  private initPromise: Promise<boolean> | null = null;
+  private isLoggingIn: boolean = false;
+  private subscribedClient: Client | undefined;
 
   constructor(
     onClientConnect: IClientConnect,
@@ -93,50 +97,75 @@ export class WalletConnectV2Provider {
     this.options = options;
   }
 
-  private disconnect() {
+  /**
+   * Clears the account and session state.
+   * Keeps the WalletConnect client, so the next connect() reuses it instead of creating a new one.
+   */
+  private resetSession() {
     this.account = { address: "", signature: "" };
-    this.walletConnector = undefined;
     this.session = undefined;
     this.pairings = undefined;
   }
 
   /**
    * Initiates WalletConnect client.
+   * The client is shared by all providers on the page (see getSharedClient),
+   * and concurrent calls wait for the same initialization.
    */
   async init(): Promise<boolean> {
     if (this.isInitialized()) {
-      return this.isInitialized();
-    } else {
-      try {
-        if (!this.isInitializing) {
-          this.isInitializing = true;
-          this.disconnect();
-          const metadata = this.options?.metadata
-            ? {
-                metadata: getMetadata(this.options?.metadata),
-              }
-            : {};
-
-          const client = await Client.init({
-            ...this.options,
-            relayUrl: this.walletConnectV2Relay,
-            projectId: this.walletConnectV2ProjectId,
-            ...metadata,
-          });
-
-          this.walletConnector = client;
-          this.isInitializing = false;
-
-          await this.subscribeToEvents(client);
-          await this.checkPersistedState(client);
-        }
-      } catch (error) {
-        throw new Error(WalletConnectV2ProviderErrorMessagesEnum.unableToInit);
-      } finally {
-        this.isInitializing = false;
-        return this.isInitialized();
-      }
+      return true;
     }
+
+    if (!this.initPromise) {
+      this.initPromise = this.initializeClient().finally(() => {
+        this.initPromise = null;
+      });
+    }
+
+    return this.initPromise;
+  }
+
+  private async initializeClient(): Promise<boolean> {
+    this.isInitializing = true;
+
+    try {
+      const metadata = this.options?.metadata
+        ? {
+            metadata: getMetadata(this.options?.metadata),
+          }
+        : {};
+
+      const client = await getSharedClient({
+        ...this.options,
+        relayUrl: this.walletConnectV2Relay,
+        projectId: this.walletConnectV2ProjectId,
+        ...metadata,
+      });
+
+      this.walletConnector = client;
+      this.isInitializing = false;
+
+      this.subscribeToEvents(client);
+      await this.checkPersistedState(client);
+    } catch (error) {
+      Logger.error(WalletConnectV2ProviderErrorMessagesEnum.unableToInit);
+    } finally {
+      this.isInitializing = false;
+    }
+
+    return this.isInitialized();
+  }
+
+  /**
+   * Detaches this provider from the shared WalletConnect client.
+   * Call it when the provider is discarded, so its callbacks stop receiving session events.
+   * It doesn't disconnect the WalletConnect session (use logout() for that).
+   */
+  destroy(): void {
+    this.unsubscribeFromEvents();
+    this.resetSession();
+    this.walletConnector = undefined;
   }
 
   /**
@@ -196,7 +225,7 @@ export class WalletConnectV2Provider {
         }
       }
 
-      this.disconnect();
+      this.resetSession();
       Logger.error(
         options?.topic
           ? WalletConnectV2ProviderErrorMessagesEnum.unableToConnectExisting
@@ -215,14 +244,12 @@ export class WalletConnectV2Provider {
     approval?: () => Promise<SessionTypes.Struct>;
     token?: string;
   }): Promise<IProviderAccount | null> {
-    this.isInitializing = true;
-    if (typeof this.walletConnector === "undefined") {
-      await this.connect();
-    }
-
     if (typeof this.walletConnector === "undefined") {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
     }
+
+    // Kept separate from isInitializing, so isInitialized() stays true while waiting for approval
+    this.isLoggingIn = true;
 
     if (typeof this.session !== "undefined") {
       await this.logout({ topic: this.session?.topic });
@@ -287,11 +314,11 @@ export class WalletConnectV2Provider {
         });
       }
     } catch (error) {
-      this.disconnect();
+      this.resetSession();
       Logger.error(WalletConnectV2ProviderErrorMessagesEnum.unableToLogin);
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.unableToLogin);
     } finally {
-      this.isInitializing = false;
+      this.isLoggingIn = false;
     }
 
     return null;
@@ -331,7 +358,7 @@ export class WalletConnectV2Provider {
           reason: getSdkError("USER_DISCONNECTED"),
         });
 
-        this.disconnect();
+        this.resetSession();
 
         await this.cleanupPendingPairings({ deletePairings: true });
       }
@@ -740,55 +767,92 @@ export class WalletConnectV2Provider {
     }
   }
 
-  private async subscribeToEvents(client: Client): Promise<void> {
-    if (typeof client === "undefined") {
-      throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
+  // Handlers are kept as fields so destroy() can remove them from the shared client
+  private readonly onSessionUpdate = ({
+    topic,
+    params,
+  }: SignClientTypes.EventArguments["session_update"]) => {
+    if (!this.walletConnector || this.session?.topic !== topic) {
+      return;
+    }
+
+    const { namespaces } = params;
+    const _session = this.walletConnector.session.get(topic);
+    const updatedSession = { ..._session, namespaces };
+    this.onSessionConnected({ session: updatedSession });
+  };
+
+  private readonly onSessionEvent = (
+    args: SignClientTypes.EventArguments["session_event"],
+  ) => this.handleSessionEvents(args);
+
+  private readonly onSessionDelete = async ({
+    topic,
+  }: SignClientTypes.EventArguments["session_delete"]) => {
+    if (this.isLoggingIn) {
+      this.onClientConnect.onClientLogout();
+      this.resetSession();
+    }
+
+    if (!this.session || this.session?.topic !== topic) {
+      return;
+    }
+
+    Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionDeleted);
+
+    this.onClientConnect.onClientLogout();
+
+    this.resetSession();
+    await this.cleanupPendingPairings({ deletePairings: true });
+  };
+
+  private readonly onSessionExpire = async ({
+    topic,
+  }: SignClientTypes.EventArguments["session_expire"]) => {
+    if (!this.session || this.session?.topic !== topic) {
+      return;
+    }
+
+    Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionExpired);
+    this.onClientConnect.onClientLogout();
+
+    this.resetSession();
+    await this.cleanupPendingPairings({ deletePairings: true });
+  };
+
+  private subscribeToEvents(client: Client): void {
+    if (this.subscribedClient === client) {
+      return;
+    }
+
+    this.unsubscribeFromEvents();
+
+    try {
+      client.on("session_update", this.onSessionUpdate);
+      client.on("session_event", this.onSessionEvent);
+      client.on("session_delete", this.onSessionDelete);
+      client.on("session_expire", this.onSessionExpire);
+      this.subscribedClient = client;
+    } catch (error) {
+      Logger.error(
+        WalletConnectV2ProviderErrorMessagesEnum.unableToHandleEvent,
+      );
+    }
+  }
+
+  private unsubscribeFromEvents(): void {
+    const client = this.subscribedClient;
+    this.subscribedClient = undefined;
+
+    if (!client) {
+      return;
     }
 
     try {
-      // Session Events
-      client.on("session_update", ({ topic, params }) => {
-        if (!this.session || this.session?.topic !== topic) {
-          return;
-        }
-
-        const { namespaces } = params;
-        const _session = client.session.get(topic);
-        const updatedSession = { ..._session, namespaces };
-        this.onSessionConnected({ session: updatedSession });
-      });
-
-      client.on("session_event", this.handleSessionEvents.bind(this));
-
-      client.on("session_delete", async ({ topic }) => {
-        if (this.isInitializing) {
-          this.onClientConnect.onClientLogout();
-          this.disconnect();
-        }
-
-        if (!this.session || this.session?.topic !== topic) {
-          return;
-        }
-
-        Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionDeleted);
-
-        this.onClientConnect.onClientLogout();
-
-        this.disconnect();
-        await this.cleanupPendingPairings({ deletePairings: true });
-      });
-
-      client.on("session_expire", async ({ topic }) => {
-        if (!this.session || this.session?.topic !== topic) {
-          return;
-        }
-
-        Logger.error(WalletConnectV2ProviderErrorMessagesEnum.sessionExpired);
-        this.onClientConnect.onClientLogout();
-
-        this.disconnect();
-        await this.cleanupPendingPairings({ deletePairings: true });
-      });
+      client.off("session_update", this.onSessionUpdate);
+      client.off("session_event", this.onSessionEvent);
+      client.off("session_delete", this.onSessionDelete);
+      client.off("session_expire", this.onSessionExpire);
     } catch (error) {
       Logger.error(
         WalletConnectV2ProviderErrorMessagesEnum.unableToHandleEvent,
@@ -813,7 +877,8 @@ export class WalletConnectV2Provider {
     if (
       client.session.length &&
       !this.account.address &&
-      !this.isInitializing
+      !this.isInitializing &&
+      !this.isLoggingIn
     ) {
       const session = getCurrentSession(this.chainId, client);
       if (session) {

@@ -143,6 +143,13 @@ In order to log out, do as follows:
 await provider.logout();
 ```
 
+All providers on a page share one WalletConnect client, so creating a new provider or calling `init()` again doesn't start a second WalletConnect Core.
+When you discard a provider without logging out (for example, when a login screen unmounts), detach it so its callbacks stop receiving session events:
+
+```js
+provider.destroy();
+```
+
 ### Signing transactions
 
 Transactions can be signed as follows:
