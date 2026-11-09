@@ -12,27 +12,31 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   publish-npm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 18
+          node-version: 24
           registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
+      - run: npm run compile
 
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_TAG=v$(node -p "require('./package.json').version")
-          gh release create --prerelease $RELEASE_TAG --target=$GITHUB_SHA --title="$RELEASE_TAG" --generate-notes
+          gh release create --prerelease "$RELEASE_TAG" --target="$GITHUB_SHA" --title="$RELEASE_TAG" --generate-notes
 
+      # Authenticates through OIDC, no NPM_TOKEN needed. Provenance is generated automatically.
       - name: Publish to npmjs
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-        run: npm publish --access=public --tag=${{ github.event.inputs.channel }}
+          CHANNEL: ${{ github.event.inputs.channel }}
+        run: npm publish --access=public --tag="$CHANNEL"
