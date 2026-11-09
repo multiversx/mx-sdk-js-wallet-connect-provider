@@ -87,7 +87,7 @@ const callbacks = {
   },
 };
 
-const provider = new WalletConnectProvider(
+const provider = new WalletConnectV2Provider(
   callbacks,
   chainId,
   relayUrl,
@@ -95,7 +95,7 @@ const provider = new WalletConnectProvider(
 );
 ```
 
-> You can customize the Core WalletConnect functionality by passing `WalletConnectProvider` an optional 5th parameter: `options`
+> You can customize the Core WalletConnect functionality by passing `WalletConnectV2Provider` an optional 5th parameter: `options`
 > For example `metadata` and `storage` for [React Native](https://docs.walletconnect.com/2.0/javascript/guides/react-native) or `{ logger: 'debug' }` for a detailed under the hood logging
 
 Before performing any operation, make sure to initialize the provider:
@@ -129,8 +129,8 @@ const authToken = "aaaabbbbaaaabbbb";
 
 await provider.login({ approval, token: authToken });
 
-console.log("Address:", provider.address);
-console.log("Token signature:", provider.signature);
+console.log("Address:", provider.getAddress());
+console.log("Token signature:", provider.getSignature());
 ```
 
 > The pairing proposal between a wallet and a dapp is made using an [URI](https://docs.walletconnect.com/2.0/specs/clients/core/pairing/pairing-uri). In WalletConnect v2.0 the session and pairing are decoupled from each other. This means that a URI is shared to construct a pairing proposal, and only after settling the pairing the dapp can propose a session using that pairing. In simpler words, the dapp generates an URI that can be used by the wallet for pairing.
@@ -141,6 +141,13 @@ In order to log out, do as follows:
 
 ```js
 await provider.logout();
+```
+
+All providers on a page share one WalletConnect client, so creating a new provider or calling `init()` again doesn't start a second WalletConnect Core.
+When you discard a provider without logging out (for example, when a login screen unmounts), detach it so its callbacks stop receiving session events:
+
+```js
+provider.destroy();
 ```
 
 ### Signing transactions
@@ -165,15 +172,16 @@ Alternatively, one can sign a single transaction using the method `signTransacti
 Arbitrary messages can be signed as follows:
 
 ```js
-import { SignableMessage } from "@multiversx/sdk-core";
+import { Message } from "@multiversx/sdk-core";
 
-const message = new SignableMessage({
-  message: Buffer.from("hello"),
+const message = new Message({
+  data: Buffer.from("hello"),
 });
 
-await provider.signMessage(message);
+// signMessage() returns a new, signed Message
+const signedMessage = await provider.signMessage(message);
 
-console.log(message.toJSON());
+console.log(Buffer.from(signedMessage.signature).toString("hex"));
 ```
 
 ## Namespaces
