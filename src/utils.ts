@@ -33,7 +33,7 @@ export interface TransactionResponse {
 
 export function getCurrentSession(
   chainId: string,
-  client?: Client
+  client?: Client,
 ): SessionTypes.Struct {
   if (!client) {
     throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -63,7 +63,7 @@ export function getCurrentSession(
 
 export function getCurrentTopic(
   chainId: string,
-  client?: Client
+  client?: Client,
 ): SessionTypes.Struct["topic"] {
   if (!client) {
     throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -72,7 +72,7 @@ export function getCurrentTopic(
   const session = getCurrentSession(chainId, client);
   if (!session?.topic) {
     throw new Error(
-      WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+      WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
     );
   }
 
@@ -81,7 +81,7 @@ export function getCurrentTopic(
 
 export function getConnectionParams(
   chainId: string,
-  options?: ConnectParamsTypes
+  options?: ConnectParamsTypes,
 ): EngineTypes.ConnectParams {
   const optionalNamespaces = getMvxNamespace(chainId, options);
   return {
@@ -91,7 +91,7 @@ export function getConnectionParams(
 
 export function getExistingConnectionParams(
   chainId: string,
-  options?: ConnectParamsTypes
+  options?: ConnectParamsTypes,
 ): EngineTypes.FindParams {
   const requiredNamespaces = getMvxNamespace(chainId, options);
   return {
@@ -101,7 +101,7 @@ export function getExistingConnectionParams(
 
 export function getMvxNamespace(
   chainId: string,
-  options?: ConnectParamsTypes
+  options?: ConnectParamsTypes,
 ): ProposalTypes.OptionalNamespaces {
   const methods = [
     ...WALLETCONNECT_MULTIVERSX_METHODS,
@@ -131,19 +131,42 @@ export function addressIsValid(destinationAddress: string): boolean {
   }
 }
 
-export function getAddressFromSession(session: SessionTypes.Struct): string {
+/**
+ * Returns the first account of the session, as long as it belongs to the
+ * `mvx` namespace and (when given) to the expected chain.
+ * Accounts use the CAIP-10 format: `mvx:<chainId>:<bech32 address>`.
+ */
+export function getAddressFromSession(
+  session: SessionTypes.Struct,
+  chainId?: string,
+): string {
   const selectedNamespace =
-    session.namespaces[WALLETCONNECT_MULTIVERSX_NAMESPACE];
+    session?.namespaces?.[WALLETCONNECT_MULTIVERSX_NAMESPACE];
 
-  if (selectedNamespace && selectedNamespace.accounts) {
-    // Use only the first address in case of multiple provided addresses
-    const currentSession = selectedNamespace.accounts[0];
-    const [namespace, reference, address] = currentSession.split(":");
-
-    return address;
+  if (!selectedNamespace?.accounts?.length) {
+    return "";
   }
 
-  return "";
+  // Use only the first address in case of multiple provided addresses
+  const [namespace, reference, address] =
+    selectedNamespace.accounts[0].split(":");
+
+  if (namespace !== WALLETCONNECT_MULTIVERSX_NAMESPACE || !address) {
+    return "";
+  }
+
+  if (chainId !== undefined && reference !== chainId) {
+    return "";
+  }
+
+  return address;
+}
+
+// Ed25519 signatures are 64 bytes, hex encoded as 128 characters
+const SIGNATURE_HEX_REGEX = /^[0-9a-fA-F]{128}$/;
+
+export function isValidSignature(signature: unknown): signature is string {
+  return typeof signature === "string" && SIGNATURE_HEX_REGEX.test(signature);
 }
 
 export function applyTransactionSignature({
@@ -155,14 +178,27 @@ export function applyTransactionSignature({
 }): Transaction {
   if (!response) {
     Logger.error(
-      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
     );
     throw new Error(
-      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
     );
   }
 
   const { signature, guardianSignature, version, options, guardian } = response;
+
+  if (
+    !isValidSignature(signature) ||
+    (guardianSignature && !isValidSignature(guardianSignature))
+  ) {
+    Logger.error(
+      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
+    );
+    throw new Error(
+      WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
+    );
+  }
+
   const transactionGuardian = transaction.guardian.toBech32();
 
   if (transactionGuardian && transactionGuardian !== guardian) {
@@ -203,6 +239,6 @@ export async function sleep(timeout: number) {
   return await new Promise<void>((resolve) =>
     setTimeout(() => {
       resolve();
-    }, timeout)
+    }, timeout),
   );
 }

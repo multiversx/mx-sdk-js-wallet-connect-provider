@@ -25,6 +25,7 @@ import {
   getAddressFromSession,
   getConnectionParams,
   getMetadata,
+  isValidSignature,
   ConnectParamsTypes,
   TransactionResponse,
   sleep,
@@ -83,7 +84,7 @@ export class WalletConnectV2Provider {
     chainId: string,
     walletConnectV2Relay: string,
     walletConnectV2ProjectId: string,
-    options?: SignClientTypes.Options
+    options?: SignClientTypes.Options,
   ) {
     this.onClientConnect = onClientConnect;
     this.chainId = chainId;
@@ -190,7 +191,7 @@ export class WalletConnectV2Provider {
           this.walletConnector.core?.expirer?.set(options.topic, 0);
         } catch (error) {
           Logger.error(
-            WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
+            WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup,
           );
         }
       }
@@ -199,13 +200,13 @@ export class WalletConnectV2Provider {
       Logger.error(
         options?.topic
           ? WalletConnectV2ProviderErrorMessagesEnum.unableToConnectExisting
-          : WalletConnectV2ProviderErrorMessagesEnum.unableToConnect
+          : WalletConnectV2ProviderErrorMessagesEnum.unableToConnect,
       );
 
       throw new Error(
         options?.topic
           ? WalletConnectV2ProviderErrorMessagesEnum.unableToConnectExisting
-          : WalletConnectV2ProviderErrorMessagesEnum.unableToConnect
+          : WalletConnectV2ProviderErrorMessagesEnum.unableToConnect,
       );
     }
   }
@@ -233,12 +234,21 @@ export class WalletConnectV2Provider {
 
         if (options.token) {
           await sleep(WALLETCONNECT_SIGN_LOGIN_DELAY); // Delay the sign login token action to allow the UI to update properly
-          const address = getAddressFromSession(session);
+          const address = getAddressFromSession(session, this.chainId);
+
+          if (!address) {
+            Logger.error(
+              WalletConnectV2ProviderErrorMessagesEnum.invalidAddress,
+            );
+            throw new Error(
+              WalletConnectV2ProviderErrorMessagesEnum.invalidAddress,
+            );
+          }
 
           const selectedNamespace =
             session.namespaces[WALLETCONNECT_MULTIVERSX_NAMESPACE];
           const method = selectedNamespace.methods.includes(
-            OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
+            OptionalOperation.SIGN_NATIVE_AUTH_TOKEN,
           )
             ? OptionalOperation.SIGN_NATIVE_AUTH_TOKEN
             : OptionalOperation.SIGN_LOGIN_TOKEN;
@@ -258,10 +268,10 @@ export class WalletConnectV2Provider {
 
           if (!signature) {
             Logger.error(
-              WalletConnectV2ProviderErrorMessagesEnum.unableToSignLoginToken
+              WalletConnectV2ProviderErrorMessagesEnum.unableToSignLoginToken,
             );
             throw new Error(
-              WalletConnectV2ProviderErrorMessagesEnum.unableToSignLoginToken
+              WalletConnectV2ProviderErrorMessagesEnum.unableToSignLoginToken,
             );
           }
 
@@ -313,7 +323,7 @@ export class WalletConnectV2Provider {
       } else {
         const currentSessionTopic = getCurrentTopic(
           this.chainId,
-          this.walletConnector
+          this.walletConnector,
         );
         this.processingTopic = currentSessionTopic;
         await this.walletConnector.disconnect({
@@ -393,11 +403,11 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
       this.onClientConnect.onClientLogout();
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
     }
 
@@ -418,23 +428,23 @@ export class WalletConnectV2Provider {
 
       if (!signature) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse,
         );
         throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageResponse,
         );
       }
 
-      try {
-        message.signature = Buffer.from(signature, "hex");
-      } catch (error) {
+      if (!isValidSignature(signature)) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature,
         );
         throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature
+          WalletConnectV2ProviderErrorMessagesEnum.invalidMessageSignature,
         );
       }
+
+      message.signature = Buffer.from(signature, "hex");
     } catch (error) {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.unableToSign);
     }
@@ -454,11 +464,11 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
       this.onClientConnect.onClientLogout();
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
     }
 
@@ -466,10 +476,10 @@ export class WalletConnectV2Provider {
 
     if (this.chainId !== transaction.chainID.valueOf()) {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
+        WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain,
       );
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
+        WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain,
       );
     }
 
@@ -488,7 +498,7 @@ export class WalletConnectV2Provider {
       return applyTransactionSignature({ transaction, response });
     } catch (error) {
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.transactionError
+        WalletConnectV2ProviderErrorMessagesEnum.transactionError,
       );
     }
   }
@@ -505,21 +515,21 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
       this.onClientConnect.onClientLogout();
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
     }
 
     const plainTransactions = transactions.map((transaction) => {
       if (this.chainId !== transaction.chainID.valueOf()) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
+          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain,
         );
         throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain
+          WalletConnectV2ProviderErrorMessagesEnum.requestDifferentChain,
         );
       }
       return transaction.toPlainObject();
@@ -540,10 +550,10 @@ export class WalletConnectV2Provider {
 
       if (!signatures) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
         );
         throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
         );
       }
 
@@ -552,7 +562,7 @@ export class WalletConnectV2Provider {
         transactions.length !== signatures.length
       ) {
         throw new Error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse
+          WalletConnectV2ProviderErrorMessagesEnum.invalidTransactionResponse,
         );
       }
 
@@ -564,7 +574,7 @@ export class WalletConnectV2Provider {
       return transactions;
     } catch (error) {
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.transactionError
+        WalletConnectV2ProviderErrorMessagesEnum.transactionError,
       );
     }
   }
@@ -584,11 +594,11 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
       this.onClientConnect.onClientLogout();
       throw new Error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
     }
 
@@ -606,12 +616,12 @@ export class WalletConnectV2Provider {
 
         if (!response) {
           Logger.error(
-            WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
+            WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse,
           );
         }
       } catch (error) {
         Logger.error(
-          WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse
+          WalletConnectV2ProviderErrorMessagesEnum.invalidCustomRequestResponse,
         );
       }
 
@@ -631,7 +641,7 @@ export class WalletConnectV2Provider {
 
     if (typeof this.session === "undefined") {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected
+        WalletConnectV2ProviderErrorMessagesEnum.sessionNotConnected,
       );
     }
 
@@ -666,7 +676,7 @@ export class WalletConnectV2Provider {
     }
 
     Logger.error(
-      `${WalletConnectV2ProviderErrorMessagesEnum.invalidAddress} ${options.address}`
+      `${WalletConnectV2ProviderErrorMessagesEnum.invalidAddress} ${options.address}`,
     );
     if (this.walletConnector) {
       await this.logout();
@@ -683,19 +693,26 @@ export class WalletConnectV2Provider {
       return null;
     }
 
+    const address = getAddressFromSession(options.session, this.chainId);
+
+    if (!address) {
+      Logger.error(WalletConnectV2ProviderErrorMessagesEnum.invalidAddress);
+      return null;
+    }
+
     this.session = options.session;
     this.account.signature = options.signature || "";
 
-    const address = getAddressFromSession(options.session);
+    const loggedInAddress = await this.loginAccount({
+      address,
+      signature: options.signature,
+    });
 
-    if (address) {
-      await this.loginAccount({ address, signature: options.signature });
-      this.account.address = address;
-
-      return this.account;
+    if (!loggedInAddress) {
+      return null;
     }
 
-    return null;
+    return this.account;
   }
 
   private async handleSessionEvents({
@@ -774,13 +791,13 @@ export class WalletConnectV2Provider {
       });
     } catch (error) {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.unableToHandleEvent
+        WalletConnectV2ProviderErrorMessagesEnum.unableToHandleEvent,
       );
     }
   }
 
   private async checkPersistedState(
-    client: Client
+    client: Client,
   ): Promise<SessionTypes.Struct | undefined> {
     if (typeof client === "undefined") {
       throw new Error(WalletConnectV2ProviderErrorMessagesEnum.notInitialized);
@@ -810,7 +827,7 @@ export class WalletConnectV2Provider {
   }
 
   private async cleanupPendingPairings(
-    options: { deletePairings?: boolean } = {}
+    options: { deletePairings?: boolean } = {},
   ): Promise<void> {
     if (typeof this.walletConnector === "undefined") {
       return;
@@ -830,18 +847,18 @@ export class WalletConnectV2Provider {
         } else {
           try {
             await this.walletConnector.core?.relayer?.subscriber?.unsubscribe(
-              pairing.topic
+              pairing.topic,
             );
           } catch (error) {
             Logger.error(
-              WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
+              WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup,
             );
           }
         }
       }
     } catch (error) {
       Logger.error(
-        WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup
+        WalletConnectV2ProviderErrorMessagesEnum.unableToHandleCleanup,
       );
     }
   }
